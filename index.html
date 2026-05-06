@@ -70,7 +70,7 @@
                         extractedText.push([pageText]);
                     }
 
-                    const worksheet = XLSX.utils.aoa_to_sheet([
+                   const worksheet = XLSX.utils.aoa_to_sheet([
                         ["Conteúdo Extraído do PDF"],
                         ...extractedText
                     ]);
@@ -78,17 +78,15 @@
                     const workbook = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
 
-                    // Gera o Excel em formato binário
+                    // 1. Gera o arquivo como um Blob (Formato binário reconhecido pelos sistemas)
                     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-                    
-                    // Adiciona ao ZIP
+                    const blob = new Blob([excelBuffer], { 
+                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                    });
+
+                    // 2. Adiciona o blob diretamente ao arquivo zip
                     const baseName = file.name.replace(/\.pdf$/i, '');
-                    zip.file(`${baseName}.xlsx`, excelBuffer);
-                } catch (err) {
-                    console.error('Erro ao processar ' + file.name, err);
-                }
-                current++;
-            }
+                    zip.file(`${baseName}.xlsx`, blob);
 
             progressCount.innerText = `Gerando ZIP...`;
 
