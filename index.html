@@ -137,7 +137,7 @@
                     const arrayBuffer = await file.arrayBuffer();
                     const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
                     
-                    let allRows = []; // Matriz principal
+                    let allRows = []; 
 
                     for (let p = 1; p <= pdf.numPages; p++) {
                         const page = await pdf.getPage(p);
@@ -145,37 +145,55 @@
                         
                         let rowsMap = new Map();
 
-                        // MAPEAMENTO POR COORDENADAS (Detetive de Tabela)
                         textContent.items.forEach(item => {
                             let textoLimpo = item.str.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '').trim();
                             if (textoLimpo === "") return;
 
-                            let x = item.transform[4]; // Coordenada horizontal
-                            let y = item.transform[5]; // Coordenada vertical
+                            let x = item.transform[4]; 
+                            let y = item.transform[5]; 
+                            let width = item.width; // Pegamos a largura do texto
                             
-                            // Arredondamento para evitar que palavras da mesma linha fiquem separadas (Margem de 4 pixels)
                             let coordY = Math.round(y / 4) * 4; 
 
                             if (!rowsMap.has(coordY)) {
                                 rowsMap.set(coordY, []);
                             }
-                            rowsMap.get(coordY).push({ text: textoLimpo, x: x });
+                            rowsMap.get(coordY).push({ text: textoLimpo, x: x, width: width });
                         });
 
-                        // 1. Organiza as linhas de cima para baixo (Y decrescente)
                         let sortedY = Array.from(rowsMap.keys()).sort((a, b) => b - a);
 
                         sortedY.forEach(y => {
-                            // 2. Organiza as colunas da esquerda para a direita (X crescente)
                             let rowItems = rowsMap.get(y).sort((a, b) => a.x - b.x);
                             
-                            // 3. Monta o array da linha
-                            let textRow = rowItems.map(i => i.text);
+                            let textRow = [];
+                            let currentText = rowItems[0].text;
+                            let currentEndX = rowItems[0].x + rowItems[0].width;
+
+                            // Agrupamento inteligente de palavras (Células)
+                            for (let i = 1; i < rowItems.length; i++) {
+                                let item = rowItems[i];
+                                
+                                // Calcula o espaço em branco entre a palavra anterior e a atual
+                                let espacoEmBranco = item.x - currentEndX;
+
+                                // Se o espaço for menor que 15 pixels, consideramos que pertence à mesma célula
+                                if (espacoEmBranco < 15) {
+                                    currentText += " " + item.text;
+                                    currentEndX = item.x + item.width; // Atualiza o final da caixa de texto
+                                } else {
+                                    // Se o salto for grande, encerramos a célula atual e começamos uma nova coluna
+                                    textRow.push(currentText);
+                                    currentText = item.text;
+                                    currentEndX = item.x + item.width;
+                                }
+                            }
+                            
+                            textRow.push(currentText); // Salva a última célula montada
                             allRows.push(textRow);
                         });
                     }
 
-                    // Gera a planilha com a matriz de células prontas
                     const worksheet = XLSX.utils.aoa_to_sheet(allRows);
                     const workbook = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
@@ -194,7 +212,6 @@
 
             progressStatus.innerText = "Baixando...";
             
-            // Lógica de download
             if (total === 1 && lastBlob) {
                 const url = URL.createObjectURL(lastBlob);
                 const a = document.createElement('a');
