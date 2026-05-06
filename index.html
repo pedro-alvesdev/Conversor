@@ -159,11 +159,12 @@
                     const workbook = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
 
-                    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-                    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                   // Correção: Gera o Excel em formato Base64 (Texto seguro para tráfego)
+                    const base64Str = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
 
+                    // Adiciona ao ZIP avisando que o conteúdo é Base64. O JSZip cuida da conversão binária perfeita.
                     const baseName = file.name.replace(/\.pdf$/i, '');
-                    zip.file(`${baseName}.xlsx`, blob);
+                    zip.file(`${baseName}.xlsx`, base64Str, { base64: true });
                 } catch (e) {
                     console.error('Erro no arquivo ' + file.name, e);
                 }
