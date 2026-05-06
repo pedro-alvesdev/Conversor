@@ -120,13 +120,17 @@
             }
         }
 
-        convertBtn.addEventListener('click', async () => {
+      convertBtn.addEventListener('click', async () => {
             if (selectedFiles.length === 0) return;
 
             progressStatus.classList.remove('hidden');
             const total = selectedFiles.length;
             let current = 0;
             const zip = new JSZip();
+            
+            // Variáveis para guardar o arquivo caso seja apenas um
+            let lastBlob = null;
+            let lastName = "";
 
             for (const file of selectedFiles) {
                 progressStatus.innerText = `Processando ${current + 1}/${total}`;
@@ -140,16 +144,16 @@
                         const page = await pdf.getPage(p);
                         const textContent = await page.getTextContent();
                         textContent.items.forEach(item => {
-                            allTextItems.push(item.str.trim());
+                            // Limpeza de caracteres invisíveis mantida por segurança
+                            let textoLimpo = item.str.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+                            if (textoLimpo.trim() !== "") {
+                                allTextItems.push(textoLimpo.trim());
+                            }
                         });
                     }
 
-                    // Removemos itens vazios
-                    const filteredItems = allTextItems.filter(item => item !== "");
-
-                    // Transforma em uma matriz de linhas para o Excel
-                    // Cada linha possui apenas 1 coluna para garantir que a formatação não quebre
-                    const rows = filteredItems.map(item => [item]);
+                    // Transforma em uma matriz de linhas
+                    const rows = allTextItems.map(item => [item]);
 
                     const worksheet = XLSX.utils.aoa_to_sheet([
                         ["Conteúdo Extraído"],
@@ -159,29 +163,45 @@
                     const workbook = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
 
-                   // Correção: Gera o Excel em formato Base64 (Texto seguro para tráfego)
-                    const base64Str = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+                    // Gera o arquivo binário
+                    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
-                    // Adiciona ao ZIP avisando que o conteúdo é Base64. O JSZip cuida da conversão binária perfeita.
-                    const baseName = file.name.replace(/\.pdf$/i, '');
-                    zip.file(`${baseName}.xlsx`, base64Str, { base64: true });
+                    lastName = file.name.replace(/\.pdf$/i, '');
+                    lastBlob = blob;
+
+                    // Adiciona ao ZIP de qualquer forma (caso tenha mais de um)
+                    zip.file(`${lastName}.xlsx`, blob);
                 } catch (e) {
                     console.error('Erro no arquivo ' + file.name, e);
                 }
                 current++;
             }
 
-            progressStatus.innerText = "Criando ZIP...";
+            progressStatus.innerText = "Baixando...";
             
-            zip.generateAsync({ type: 'blob' }).then(content => {
-                const url = URL.createObjectURL(content);
+            // CORREÇÃO: Lógica de download condicional correta
+            if (total === 1 && lastBlob) {
+                // Se for 1 arquivo, baixa o Excel direto, ignorando o JSZip
+                const url = URL.createObjectURL(lastBlob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = total > 1 ? 'documentos_convertidos.zip' : `${selectedFiles[0].name.replace(/\.pdf$/i, '')}.xlsx`;
+                a.download = `${lastName}.xlsx`;
                 a.click();
                 URL.revokeObjectURL(url);
                 progressStatus.classList.add('hidden');
-            });
+            } else {
+                // Se for mais de 1 arquivo, gera o ZIP com o nome correto
+                zip.generateAsync({ type: 'blob' }).then(content => {
+                    const url = URL.createObjectURL(content);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'documentos_convertidos.zip'; // O nome será sempre .zip aqui
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    progressStatus.classList.add('hidden');
+                });
+            }
         });
     </script>
 </body>
