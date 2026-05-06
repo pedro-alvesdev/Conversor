@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conversor do PH</title>
+    <title>PDF Converter - Excel & Word</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
     
     <style>
         .drop-zone {
@@ -17,57 +19,73 @@
             border-color: #1d4ed8;
             background-color: #eff6ff;
         }
+        /* Estilo para esconder os radio buttons padrão e customizar */
+        input[type="radio"]:checked + label {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-between font-sans">
 
     <header class="w-full bg-white shadow-sm py-4 px-6 flex items-center justify-between">
         <div class="flex items-center space-x-2">
-            <span class="text-blue-600 font-extrabold text-2xl tracking-tight">Conversor <span class="text-gray-800">do PH</span></span>
+            <span class="text-blue-600 font-extrabold text-2xl tracking-tight">PDF<span class="text-gray-800">Converter</span></span>
         </div>
         <nav class="hidden md:flex space-x-6 text-sm text-gray-600">
-            <a href="#" class="hover:text-blue-600">Converter PDF</a>
-            <a href="#" class="hover:text-blue-600">Privacidade</a>
+            <a href="#" class="hover:text-blue-600">Privacidade (Offline)</a>
         </nav>
     </header>
 
     <main class="w-full max-w-4xl px-4 py-8 flex flex-col items-center flex-grow justify-center">
         <div class="text-center mb-8">
-            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Converter PDF para Excel</h1>
-            <p class="text-gray-600 text-sm md:text-base">Múltiplos PDFs serão combinados em um único arquivo Excel, separados por abas.</p>
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Converta seus PDFs localmente</h1>
+            <p class="text-gray-600 text-sm md:text-base">Escolha entre Excel (Múltiplas Abas) ou Word (Arquivo Único ou ZIP).</p>
         </div>
 
-        <div id="dropZone" class="drop-zone w-full max-w-2xl bg-white rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer shadow-lg">
+        <div id="dropZone" class="drop-zone w-full max-w-2xl bg-white rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer shadow-lg mb-6">
             <svg class="w-16 h-16 text-blue-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
             <span class="text-xl font-bold text-gray-700 mb-2">Clique ou solte os arquivos PDF aqui</span>
-            <span class="text-sm text-gray-400">Suporta múltiplos documentos simultaneamente</span>
-            
+            <span class="text-sm text-gray-400">Arraste múltiplos arquivos se precisar</span>
             <input type="file" id="fileInput" class="hidden" accept="application/pdf" multiple>
         </div>
 
-        <div id="actionSection" class="w-full max-w-2xl mt-6 hidden">
+        <div id="actionSection" class="w-full max-w-2xl hidden">
+            
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-700 mb-3 text-center">Escolha o formato de saída:</h3>
+                <div class="flex gap-4 justify-center">
+                    <div>
+                        <input type="radio" name="formatOutput" id="formatExcel" value="excel" class="hidden" checked>
+                        <label for="formatExcel" class="cursor-pointer border-2 border-gray-200 rounded-lg px-6 py-3 font-semibold text-gray-600 transition flex items-center gap-2">
+                            📊 Excel (.xlsx)
+                        </label>
+                    </div>
+                    <div>
+                        <input type="radio" name="formatOutput" id="formatWord" value="word" class="hidden">
+                        <label for="formatWord" class="cursor-pointer border-2 border-gray-200 rounded-lg px-6 py-3 font-semibold text-gray-600 transition flex items-center gap-2">
+                            📝 Word (.docx)
+                        </label>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 text-center mt-3" id="formatHint">Múltiplos PDFs virarão abas em um único Excel.</p>
+            </div>
+
             <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100 max-h-48 overflow-y-auto">
-                <h3 class="text-sm font-semibold text-gray-600 mb-2">Arquivos selecionados:</h3>
                 <ul id="fileList" class="text-sm text-gray-700 divide-y divide-gray-100"></ul>
             </div>
 
             <div class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border">
-                <span id="progressStatus" class="text-sm text-gray-600 hidden">Processando...</span>
-                <button id="convertBtn" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                    </svg>
-                    Gerar Planilha Única
+                <span id="progressStatus" class="text-sm text-gray-600 hidden font-semibold text-blue-600">Processando...</span>
+                <button id="convertBtn" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center gap-2 ml-auto">
+                    🚀 Iniciar Conversão
                 </button>
             </div>
         </div>
     </main>
-
-    <footer class="w-full bg-white py-4 text-center text-xs text-gray-400 border-t">
-        <p>Desenvolvido localmente no seu navegador. Privacidade garantida.</p>
-    </footer>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -78,32 +96,29 @@
         const fileList = document.getElementById('fileList');
         const convertBtn = document.getElementById('convertBtn');
         const progressStatus = document.getElementById('progressStatus');
+        const formatHint = document.getElementById('formatHint');
+        const formatRadios = document.getElementsByName('formatOutput');
 
         let selectedFiles = [];
 
+        // Atualiza a dica dependendo do formato escolhido
+        formatRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if(e.target.value === 'excel') {
+                    formatHint.innerText = "Múltiplos PDFs virarão abas em um único Excel.";
+                } else {
+                    formatHint.innerText = "Múltiplos PDFs serão baixados juntos em um arquivo .ZIP.";
+                }
+            });
+        });
+
+        // Eventos de Drag & Drop
         dropZone.addEventListener('click', () => fileInput.click());
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                dropZone.classList.add('dragover');
-            }, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                dropZone.classList.remove('dragover');
-            }, false);
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            handleFiles(e.dataTransfer.files);
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
-        });
+        ['dragenter', 'dragover'].forEach(eName => dropZone.addEventListener(eName, e => { e.preventDefault(); dropZone.classList.add('dragover'); }, false));
+        ['dragleave', 'drop'].forEach(eName => dropZone.addEventListener(eName, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }, false));
+        
+        dropZone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+        fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
         function handleFiles(files) {
             selectedFiles = Array.from(files).filter(file => file.type === 'application/pdf');
@@ -121,121 +136,174 @@
 
         convertBtn.addEventListener('click', async () => {
             if (selectedFiles.length === 0) return;
-
+            
+            // Verifica o formato selecionado
+            const selectedFormat = document.querySelector('input[name="formatOutput"]:checked').value;
+            
             progressStatus.classList.remove('hidden');
+            convertBtn.disabled = true;
+            convertBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
             const total = selectedFiles.length;
             let current = 0;
-            
-            // 1. Cria um único "livro" do Excel que vai receber todas as abas
-            const workbook = XLSX.utils.book_new();
 
-            for (const file of selectedFiles) {
-                progressStatus.innerText = `Lendo arquivo ${current + 1}/${total}...`;
-                
-                try {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
-                    
-                    let allRows = []; 
+            if (selectedFormat === 'excel') {
+                // =============== LÓGICA DO EXCEL ===============
+                const workbook = XLSX.utils.book_new();
+                for (const file of selectedFiles) {
+                    progressStatus.innerText = `Lendo PDF ${current + 1}/${total}...`;
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
+                        let allRows = []; 
 
-                    for (let p = 1; p <= pdf.numPages; p++) {
-                        const page = await pdf.getPage(p);
-                        const textContent = await page.getTextContent();
-                        
-                        let rowsMap = new Map();
+                        for (let p = 1; p <= pdf.numPages; p++) {
+                            const page = await pdf.getPage(p);
+                            const textContent = await page.getTextContent();
+                            let rowsMap = new Map();
 
-                        textContent.items.forEach(item => {
-                            let textoLimpo = item.str.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '').trim();
-                            if (textoLimpo === "") return;
+                            textContent.items.forEach(item => {
+                                let textoLimpo = item.str.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '').trim();
+                                if (textoLimpo === "") return;
+                                let x = item.transform[4], y = item.transform[5], width = item.width; 
+                                let coordY = Math.round(y / 4) * 4; 
+                                if (!rowsMap.has(coordY)) rowsMap.set(coordY, []);
+                                rowsMap.get(coordY).push({ text: textoLimpo, x: x, width: width });
+                            });
 
-                            let x = item.transform[4]; 
-                            let y = item.transform[5]; 
-                            let width = item.width; 
-                            
-                            let coordY = Math.round(y / 4) * 4; 
+                            let sortedY = Array.from(rowsMap.keys()).sort((a, b) => b - a);
+                            sortedY.forEach(y => {
+                                let rowItems = rowsMap.get(y).sort((a, b) => a.x - b.x);
+                                let textRow = [];
+                                let currentText = rowItems[0].text;
+                                let currentEndX = rowItems[0].x + rowItems[0].width;
 
-                            if (!rowsMap.has(coordY)) {
-                                rowsMap.set(coordY, []);
-                            }
-                            rowsMap.get(coordY).push({ text: textoLimpo, x: x, width: width });
-                        });
-
-                        let sortedY = Array.from(rowsMap.keys()).sort((a, b) => b - a);
-
-                        sortedY.forEach(y => {
-                            let rowItems = rowsMap.get(y).sort((a, b) => a.x - b.x);
-                            
-                            let textRow = [];
-                            let currentText = rowItems[0].text;
-                            let currentEndX = rowItems[0].x + rowItems[0].width;
-
-                            for (let i = 1; i < rowItems.length; i++) {
-                                let item = rowItems[i];
-                                let espacoEmBranco = item.x - currentEndX;
-
-                                if (espacoEmBranco < 15) {
-                                    currentText += " " + item.text;
-                                    currentEndX = item.x + item.width; 
-                                } else {
-                                    textRow.push(currentText);
-                                    currentText = item.text;
-                                    currentEndX = item.x + item.width;
+                                for (let i = 1; i < rowItems.length; i++) {
+                                    let item = rowItems[i];
+                                    if (item.x - currentEndX < 15) {
+                                        currentText += " " + item.text;
+                                        currentEndX = item.x + item.width; 
+                                    } else {
+                                        textRow.push(currentText);
+                                        currentText = item.text;
+                                        currentEndX = item.x + item.width;
+                                    }
                                 }
-                            }
-                            textRow.push(currentText); 
-                            allRows.push(textRow);
-                        });
-                    }
+                                textRow.push(currentText); 
+                                allRows.push(textRow);
+                            });
+                        }
 
-                    // Transforma os dados lidos em uma planilha
-                    const worksheet = XLSX.utils.aoa_to_sheet(allRows);
-                    
-                    // Lógica para dar um nome válido à aba do Excel (máximo 31 caracteres e sem símbolos inválidos)
-                    let sheetName = file.name.replace(/\.pdf$/i, '').replace(/[\\\/\?\*\[\]\:]/g, '');
-                    if (sheetName.length > 31) {
-                        sheetName = sheetName.substring(0, 31);
-                    }
-                    
-                    // Garante que não existam abas com o mesmo nome exato
-                    let finalSheetName = sheetName;
-                    let counter = 1;
-                    while (workbook.SheetNames.includes(finalSheetName)) {
-                        let suffix = `_${counter}`;
-                        finalSheetName = sheetName.substring(0, 31 - suffix.length) + suffix;
-                        counter++;
-                    }
-
-                    // 2. Adiciona esta aba ao livro principal criado lá em cima
-                    XLSX.utils.book_append_sheet(workbook, worksheet, finalSheetName);
-
-                } catch (e) {
-                    console.error('Erro no arquivo ' + file.name, e);
+                        const worksheet = XLSX.utils.aoa_to_sheet(allRows);
+                        let sheetName = file.name.replace(/\.pdf$/i, '').replace(/[\\\/\?\*\[\]\:]/g, '').substring(0, 31);
+                        let finalSheetName = sheetName, counter = 1;
+                        while (workbook.SheetNames.includes(finalSheetName)) {
+                            let suffix = `_${counter}`;
+                            finalSheetName = sheetName.substring(0, 31 - suffix.length) + suffix;
+                            counter++;
+                        }
+                        XLSX.utils.book_append_sheet(workbook, worksheet, finalSheetName);
+                    } catch (e) { console.error(e); }
+                    current++;
                 }
-                current++;
+
+                progressStatus.innerText = "Gerando o Excel...";
+                const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                downloadBlob(blob, total === 1 ? `${selectedFiles[0].name.replace(/\.pdf$/i, '')}.xlsx` : `Documentos_Compilados.xlsx`);
+                
+            } else if (selectedFormat === 'word') {
+                // =============== LÓGICA DO WORD ===============
+                const zip = new JSZip();
+                let lastBlob = null;
+                let lastName = "";
+
+                for (const file of selectedFiles) {
+                    progressStatus.innerText = `Gerando Word ${current + 1}/${total}...`;
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
+                        
+                        let docxParagraphs = [];
+
+                        for (let p = 1; p <= pdf.numPages; p++) {
+                            const page = await pdf.getPage(p);
+                            const textContent = await page.getTextContent();
+                            let rowsMap = new Map();
+
+                            // Usamos a mesma lógica de detecção de linhas para criar os parágrafos do Word
+                            textContent.items.forEach(item => {
+                                let textoLimpo = item.str.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '').trim();
+                                if (textoLimpo === "") return;
+                                let x = item.transform[4], y = item.transform[5], width = item.width; 
+                                let coordY = Math.round(y / 4) * 4; 
+                                if (!rowsMap.has(coordY)) rowsMap.set(coordY, []);
+                                rowsMap.get(coordY).push({ text: textoLimpo, x: x, width: width });
+                            });
+
+                            let sortedY = Array.from(rowsMap.keys()).sort((a, b) => b - a);
+                            sortedY.forEach(y => {
+                                let rowItems = rowsMap.get(y).sort((a, b) => a.x - b.x);
+                                
+                                // Para o Word, agrupamos tudo da mesma linha com um pequeno espaçamento para simular a tabela visualmente
+                                let linhaCompleta = rowItems.map(item => item.text).join("   |   ");
+                                
+                                docxParagraphs.push(new docx.Paragraph({
+                                    children: [new docx.TextRun(linhaCompleta)]
+                                }));
+                            });
+                            
+                            // Adiciona uma quebra de página visual se não for a última
+                            if(p < pdf.numPages) {
+                                docxParagraphs.push(new docx.Paragraph({ children: [new docx.TextRun({ text: "--- Quebra de Página ---", color: "888888" })] }));
+                            }
+                        }
+
+                        // Constrói o Documento Word
+                        const doc = new docx.Document({
+                            sections: [{
+                                properties: {},
+                                children: docxParagraphs
+                            }]
+                        });
+
+                        const blob = await docx.Packer.toBlob(doc);
+                        lastName = file.name.replace(/\.pdf$/i, '');
+                        lastBlob = blob;
+                        zip.file(`${lastName}.docx`, blob);
+
+                    } catch (e) { console.error(e); }
+                    current++;
+                }
+
+                progressStatus.innerText = "Gerando pacote...";
+                
+                // Lógica ZIP ou Único
+                if (total === 1 && lastBlob) {
+                    downloadBlob(lastBlob, `${lastName}.docx`);
+                } else {
+                    zip.generateAsync({ type: 'blob' }).then(content => {
+                        downloadBlob(content, 'Documentos_Word.zip');
+                    });
+                }
             }
-
-            progressStatus.innerText = "Gerando o Excel Final...";
             
-            // 3. Gera um único arquivo binário com todas as abas consolidadas
-            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-            const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            // Restaura o botão
+            progressStatus.innerText = "Concluído!";
+            setTimeout(() => progressStatus.classList.add('hidden'), 3000);
+            convertBtn.disabled = false;
+            convertBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        });
 
-            // Inicia o download
+        // Função utilitária para fazer download
+        function downloadBlob(blob, filename) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            
-            // Define o nome do arquivo final
-            if (total === 1) {
-                a.download = `${selectedFiles[0].name.replace(/\.pdf$/i, '')}.xlsx`;
-            } else {
-                a.download = `Documentos_Compilados.xlsx`;
-            }
-            
+            a.download = filename;
             a.click();
             URL.revokeObjectURL(url);
-            progressStatus.classList.add('hidden');
-        });
+        }
     </script>
 </body>
 </html>
