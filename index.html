@@ -3,57 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conversor Múltiplo de PDF para Excel</title>
+    <title>PDF para Excel - iLovePDF Style</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        .drop-zone {
+            border: 3px dashed #3b82f6;
+            transition: all 0.3s ease;
+        }
+        .drop-zone.dragover {
+            border-color: #1d4ed8;
+            background-color: #eff6ff;
+        }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-6 font-sans">
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-between font-sans">
 
-    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-lg w-full">
-        <h1 class="text-2xl font-bold text-gray-800 mb-2 text-center">Conversor em Lote de PDF para Excel</h1>
-        <p class="text-sm text-gray-500 mb-6 text-center">Selecione múltiplos arquivos. Cada um gerará um Excel, baixados juntos em um arquivo .zip.</p>
-        
-        <div class="mb-5">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Selecione os arquivos PDF:</label>
-            <input type="file" id="pdfFiles" accept="application/pdf" multiple class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+    <header class="w-full bg-white shadow-sm py-4 px-6 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <span class="text-blue-600 font-extrabold text-2xl tracking-tight">PDF<span class="text-gray-800">toEXCEL</span></span>
+        </div>
+        <nav class="hidden md:flex space-x-6 text-sm text-gray-600">
+            <a href="#" class="hover:text-blue-600">Converter PDF</a>
+            <a href="#" class="hover:text-blue-600">Privacidade</a>
+        </nav>
+    </header>
+
+    <main class="w-full max-w-4xl px-4 py-8 flex flex-col items-center flex-grow justify-center">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Converter PDF para Excel</h1>
+            <p class="text-gray-600 text-sm md:text-base">Converta dados de relatórios e documentos para o Excel. Sem bancos de dados ou armazenamento.</p>
         </div>
 
-        <button id="convertBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 cursor-pointer mb-4">
-            Converter e Baixar Arquivos
-        </button>
-        
-        <div id="progressStatus" class="text-center text-sm text-gray-600 hidden">
-            Processando... <span id="progressCount">0/0</span>
+        <div id="dropZone" class="drop-zone w-full max-w-2xl bg-white rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer shadow-lg">
+            <svg class="w-16 h-16 text-blue-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            <span class="text-xl font-bold text-gray-700 mb-2">Clique ou solte os arquivos PDF aqui</span>
+            <span class="text-sm text-gray-400">Suporta múltiplos documentos simultaneamente</span>
+            
+            <input type="file" id="fileInput" class="hidden" accept="application/pdf" multiple>
         </div>
 
-        <p class="text-xs text-gray-400 mt-6 text-center border-t pt-4">Nenhum dado é salvo em servidores. Todo o processamento ocorre localmente no seu navegador.</p>
-    </div>
+        <div id="actionSection" class="w-full max-w-2xl mt-6 hidden">
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100 max-h-48 overflow-y-auto">
+                <h3 class="text-sm font-semibold text-gray-600 mb-2">Arquivos selecionados:</h3>
+                <ul id="fileList" class="text-sm text-gray-700 divide-y divide-gray-100"></ul>
+            </div>
+
+            <div class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border">
+                <span id="progressStatus" class="text-sm text-gray-600 hidden">Processando 0/0...</span>
+                <button id="convertBtn" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Converter para Excel
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full bg-white py-4 text-center text-xs text-gray-400 border-t">
+        <p>Desenvolvido localmente no seu navegador. Privacidade garantida.</p>
+    </footer>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        document.getElementById('convertBtn').addEventListener('click', async () => {
-            const fileInput = document.getElementById('pdfFiles');
-            if (fileInput.files.length === 0) {
-                alert('Selecione pelo menos um arquivo PDF.');
-                return;
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const actionSection = document.getElementById('actionSection');
+        const fileList = document.getElementById('fileList');
+        const convertBtn = document.getElementById('convertBtn');
+        const progressStatus = document.getElementById('progressStatus');
+
+        let selectedFiles = [];
+
+        // Ao clicar na área
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // Eventos de Drag & Drop
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files).filter(file => file.type === 'application/pdf');
+            
+            if (selectedFiles.length > 0) {
+                actionSection.classList.remove('hidden');
+                fileList.innerHTML = '';
+                selectedFiles.forEach(file => {
+                    const li = document.createElement('li');
+                    li.className = "py-2 flex justify-between items-center";
+                    li.innerHTML = `<span>📄 ${file.name}</span> <span class="text-xs text-gray-400">${(file.size/1024/1024).toFixed(2)} MB</span>`;
+                    fileList.appendChild(li);
+                });
             }
+        }
 
-            const statusDiv = document.getElementById('progressStatus');
-            const progressCount = document.getElementById('progressCount');
-            statusDiv.classList.remove('hidden');
+        convertBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
 
-            const zip = new JSZip();
-            const files = Array.from(fileInput.files);
-            let total = files.length;
+            progressStatus.classList.remove('hidden');
+            const total = selectedFiles.length;
             let current = 0;
+            const zip = new JSZip();
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                progressCount.innerText = `${current + 1}/${total}`;
-
+            for (const file of selectedFiles) {
+                progressStatus.innerText = `Processando ${current + 1}/${total}`;
+                
                 try {
                     const arrayBuffer = await file.arrayBuffer();
                     const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
@@ -65,44 +146,37 @@
                         combinedText += textContent.items.map(item => item.str).join(' ') + " ";
                     }
 
-                    // Limpa espaços extras para facilitar a separação
                     const cleanText = combinedText.replace(/\s+/g, ' ').trim();
-
-                    // Cria um array de dados organizados em linhas
-                    const rows = [
+                    const worksheet = XLSX.utils.aoa_to_sheet([
                         ["Relatório de Rendimento"],
-                        ["Conteúdo Extraído"],
+                        ["Conteúdo Extraído do PDF"],
                         [cleanText]
-                    ];
+                    ]);
 
-                    const worksheet = XLSX.utils.aoa_to_sheet(rows);
                     const workbook = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
 
-                    // Gera o arquivo como um Blob binário válido
                     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-                    const blob = new Blob([excelBuffer], { 
-                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-                    });
+                    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
                     const baseName = file.name.replace(/\.pdf$/i, '');
                     zip.file(`${baseName}.xlsx`, blob);
-                } catch (err) {
-                    console.error('Erro ao processar ' + file.name, err);
+                } catch (e) {
+                    console.error('Erro no arquivo ' + file.name, e);
                 }
                 current++;
             }
 
-            progressCount.innerText = `Gerando ZIP...`;
-
-            zip.generateAsync({ type: 'blob' }).then((content) => {
+            progressStatus.innerText = "Criando ZIP...";
+            
+            zip.generateAsync({ type: 'blob' }).then(content => {
                 const url = URL.createObjectURL(content);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = total > 1 ? 'documentos_convertidos.zip' : `${files[0].name.replace(/\.pdf$/i, '')}.xlsx`;
+                a.download = total > 1 ? 'documentos_convertidos.zip' : `${selectedFiles[0].name.replace(/\.pdf$/i, '')}.xlsx`;
                 a.click();
                 URL.revokeObjectURL(url);
-                statusDiv.classList.add('hidden');
+                progressStatus.classList.add('hidden');
             });
         });
     </script>
