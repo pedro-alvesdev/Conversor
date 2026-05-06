@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF para Excel - iLovePDF Style</title>
+    <title>PDF para Excel - Múltiplas Abas</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
     <style>
         .drop-zone {
             border: 3px dashed #3b82f6;
@@ -34,7 +34,7 @@
     <main class="w-full max-w-4xl px-4 py-8 flex flex-col items-center flex-grow justify-center">
         <div class="text-center mb-8">
             <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Converter PDF para Excel</h1>
-            <p class="text-gray-600 text-sm md:text-base">Converta relatórios estruturados mantendo linhas e colunas. Sem armazenamento na nuvem.</p>
+            <p class="text-gray-600 text-sm md:text-base">Múltiplos PDFs serão combinados em um único arquivo Excel, separados por abas.</p>
         </div>
 
         <div id="dropZone" class="drop-zone w-full max-w-2xl bg-white rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer shadow-lg">
@@ -59,7 +59,7 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
-                    Converter para Excel
+                    Gerar Planilha Única
                 </button>
             </div>
         </div>
@@ -125,13 +125,12 @@
             progressStatus.classList.remove('hidden');
             const total = selectedFiles.length;
             let current = 0;
-            const zip = new JSZip();
             
-            let lastBlob = null;
-            let lastName = "";
+            // 1. Cria um único "livro" do Excel que vai receber todas as abas
+            const workbook = XLSX.utils.book_new();
 
             for (const file of selectedFiles) {
-                progressStatus.innerText = `Processando ${current + 1}/${total}`;
+                progressStatus.innerText = `Lendo arquivo ${current + 1}/${total}...`;
                 
                 try {
                     const arrayBuffer = await file.arrayBuffer();
@@ -151,7 +150,7 @@
 
                             let x = item.transform[4]; 
                             let y = item.transform[5]; 
-                            let width = item.width; // Pegamos a largura do texto
+                            let width = item.width; 
                             
                             let coordY = Math.round(y / 4) * 4; 
 
@@ -170,67 +169,72 @@
                             let currentText = rowItems[0].text;
                             let currentEndX = rowItems[0].x + rowItems[0].width;
 
-                            // Agrupamento inteligente de palavras (Células)
                             for (let i = 1; i < rowItems.length; i++) {
                                 let item = rowItems[i];
-                                
-                                // Calcula o espaço em branco entre a palavra anterior e a atual
                                 let espacoEmBranco = item.x - currentEndX;
 
-                                // Se o espaço for menor que 15 pixels, consideramos que pertence à mesma célula
                                 if (espacoEmBranco < 15) {
                                     currentText += " " + item.text;
-                                    currentEndX = item.x + item.width; // Atualiza o final da caixa de texto
+                                    currentEndX = item.x + item.width; 
                                 } else {
-                                    // Se o salto for grande, encerramos a célula atual e começamos uma nova coluna
                                     textRow.push(currentText);
                                     currentText = item.text;
                                     currentEndX = item.x + item.width;
                                 }
                             }
-                            
-                            textRow.push(currentText); // Salva a última célula montada
+                            textRow.push(currentText); 
                             allRows.push(textRow);
                         });
                     }
 
+                    // Transforma os dados lidos em uma planilha
                     const worksheet = XLSX.utils.aoa_to_sheet(allRows);
-                    const workbook = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
+                    
+                    // Lógica para dar um nome válido à aba do Excel (máximo 31 caracteres e sem símbolos inválidos)
+                    let sheetName = file.name.replace(/\.pdf$/i, '').replace(/[\\\/\?\*\[\]\:]/g, '');
+                    if (sheetName.length > 31) {
+                        sheetName = sheetName.substring(0, 31);
+                    }
+                    
+                    // Garante que não existam abas com o mesmo nome exato
+                    let finalSheetName = sheetName;
+                    let counter = 1;
+                    while (workbook.SheetNames.includes(finalSheetName)) {
+                        let suffix = `_${counter}`;
+                        finalSheetName = sheetName.substring(0, 31 - suffix.length) + suffix;
+                        counter++;
+                    }
 
-                    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-                    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    // 2. Adiciona esta aba ao livro principal criado lá em cima
+                    XLSX.utils.book_append_sheet(workbook, worksheet, finalSheetName);
 
-                    lastName = file.name.replace(/\.pdf$/i, '');
-                    lastBlob = blob;
-                    zip.file(`${lastName}.xlsx`, blob);
                 } catch (e) {
                     console.error('Erro no arquivo ' + file.name, e);
                 }
                 current++;
             }
 
-            progressStatus.innerText = "Baixando...";
+            progressStatus.innerText = "Gerando o Excel Final...";
             
-            if (total === 1 && lastBlob) {
-                const url = URL.createObjectURL(lastBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${lastName}.xlsx`;
-                a.click();
-                URL.revokeObjectURL(url);
-                progressStatus.classList.add('hidden');
+            // 3. Gera um único arquivo binário com todas as abas consolidadas
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            // Inicia o download
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Define o nome do arquivo final
+            if (total === 1) {
+                a.download = `${selectedFiles[0].name.replace(/\.pdf$/i, '')}.xlsx`;
             } else {
-                zip.generateAsync({ type: 'blob' }).then(content => {
-                    const url = URL.createObjectURL(content);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'documentos_convertidos.zip';
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    progressStatus.classList.add('hidden');
-                });
+                a.download = `Documentos_Compilados.xlsx`;
             }
+            
+            a.click();
+            URL.revokeObjectURL(url);
+            progressStatus.classList.add('hidden');
         });
     </script>
 </body>
