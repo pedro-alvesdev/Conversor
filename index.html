@@ -63,6 +63,10 @@
                         const page = await pdf.getPage(p);
                         const textContent = await page.getTextContent();
                         const pageText = textContent.items.map(item => item.str).join(' ');
+                        
+                        // DEPURADOR: Mostra o que está sendo lido na tela F12
+                        console.log(`Página ${p} do arquivo ${file.name}:`, pageText);
+                        
                         extractedText.push([pageText]);
                     }
 
@@ -74,7 +78,7 @@
                     const workbook = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
 
-                    // Gera o arquivo diretamente como um ArrayBuffer binário válido
+                    // Gera o arquivo como um Blob reconhecido pelo Excel
                     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
                     const blob = new Blob([excelBuffer], { 
                         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
@@ -83,7 +87,8 @@
                     const baseName = file.name.replace(/\.pdf$/i, '');
                     zip.file(`${baseName}.xlsx`, blob);
                 } catch (err) {
-                    console.error('Erro ao processar ' + file.name, err);
+                    // DEPURADOR: Mostra o erro exato no console
+                    console.error('Erro ao processar o arquivo ' + file.name, err);
                 }
                 current++;
             }
