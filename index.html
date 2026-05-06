@@ -81,10 +81,8 @@
 
         let selectedFiles = [];
 
-        // Ao clicar na área
         dropZone.addEventListener('click', () => fileInput.click());
 
-        // Eventos de Drag & Drop
         ['dragenter', 'dragover'].forEach(eventName => {
             dropZone.addEventListener(eventName, (e) => {
                 e.preventDefault();
@@ -100,9 +98,7 @@
         });
 
         dropZone.addEventListener('drop', (e) => {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            handleFiles(files);
+            handleFiles(e.dataTransfer.files);
         });
 
         fileInput.addEventListener('change', (e) => {
@@ -139,18 +135,25 @@
                     const arrayBuffer = await file.arrayBuffer();
                     const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
                     
-                    let combinedText = "";
+                    let allTextItems = [];
                     for (let p = 1; p <= pdf.numPages; p++) {
                         const page = await pdf.getPage(p);
                         const textContent = await page.getTextContent();
-                        combinedText += textContent.items.map(item => item.str).join(' ') + " ";
+                        textContent.items.forEach(item => {
+                            allTextItems.push(item.str.trim());
+                        });
                     }
 
-                    const cleanText = combinedText.replace(/\s+/g, ' ').trim();
+                    // Removemos itens vazios
+                    const filteredItems = allTextItems.filter(item => item !== "");
+
+                    // Transforma em uma matriz de linhas para o Excel
+                    // Cada linha possui apenas 1 coluna para garantir que a formatação não quebre
+                    const rows = filteredItems.map(item => [item]);
+
                     const worksheet = XLSX.utils.aoa_to_sheet([
-                        ["Relatório de Rendimento"],
-                        ["Conteúdo Extraído do PDF"],
-                        [cleanText]
+                        ["Conteúdo Extraído"],
+                        ...rows
                     ]);
 
                     const workbook = XLSX.utils.book_new();
