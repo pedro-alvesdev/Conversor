@@ -34,7 +34,7 @@
     <main class="w-full max-w-4xl px-4 py-8 flex flex-col items-center flex-grow justify-center">
         <div class="text-center mb-8">
             <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Converter PDF para Excel</h1>
-            <p class="text-gray-600 text-sm md:text-base">Converta dados de relatórios e documentos para o Excel. Sem bancos de dados ou armazenamento.</p>
+            <p class="text-gray-600 text-sm md:text-base">Converta relatórios estruturados mantendo linhas e colunas. Sem armazenamento na nuvem.</p>
         </div>
 
         <div id="dropZone" class="drop-zone w-full max-w-2xl bg-white rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer shadow-lg">
@@ -54,7 +54,7 @@
             </div>
 
             <div class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border">
-                <span id="progressStatus" class="text-sm text-gray-600 hidden">Processando 0/0...</span>
+                <span id="progressStatus" class="text-sm text-gray-600 hidden">Processando...</span>
                 <button id="convertBtn" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -107,7 +107,6 @@
 
         function handleFiles(files) {
             selectedFiles = Array.from(files).filter(file => file.type === 'application/pdf');
-            
             if (selectedFiles.length > 0) {
                 actionSection.classList.remove('hidden');
                 fileList.innerHTML = '';
@@ -120,7 +119,7 @@
             }
         }
 
-      convertBtn.addEventListener('click', async () => {
+        convertBtn.addEventListener('click', async () => {
             if (selectedFiles.length === 0) return;
 
             progressStatus.classList.remove('hidden');
@@ -128,7 +127,6 @@
             let current = 0;
             const zip = new JSZip();
             
-            // Variáveis para guardar o arquivo caso seja apenas um
             let lastBlob = null;
             let lastName = "";
 
@@ -139,38 +137,54 @@
                     const arrayBuffer = await file.arrayBuffer();
                     const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
                     
-                    let allTextItems = [];
+                    let allRows = []; // Matriz principal
+
                     for (let p = 1; p <= pdf.numPages; p++) {
                         const page = await pdf.getPage(p);
                         const textContent = await page.getTextContent();
+                        
+                        let rowsMap = new Map();
+
+                        // MAPEAMENTO POR COORDENADAS (Detetive de Tabela)
                         textContent.items.forEach(item => {
-                            // Limpeza de caracteres invisíveis mantida por segurança
-                            let textoLimpo = item.str.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '');
-                            if (textoLimpo.trim() !== "") {
-                                allTextItems.push(textoLimpo.trim());
+                            let textoLimpo = item.str.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '').trim();
+                            if (textoLimpo === "") return;
+
+                            let x = item.transform[4]; // Coordenada horizontal
+                            let y = item.transform[5]; // Coordenada vertical
+                            
+                            // Arredondamento para evitar que palavras da mesma linha fiquem separadas (Margem de 4 pixels)
+                            let coordY = Math.round(y / 4) * 4; 
+
+                            if (!rowsMap.has(coordY)) {
+                                rowsMap.set(coordY, []);
                             }
+                            rowsMap.get(coordY).push({ text: textoLimpo, x: x });
+                        });
+
+                        // 1. Organiza as linhas de cima para baixo (Y decrescente)
+                        let sortedY = Array.from(rowsMap.keys()).sort((a, b) => b - a);
+
+                        sortedY.forEach(y => {
+                            // 2. Organiza as colunas da esquerda para a direita (X crescente)
+                            let rowItems = rowsMap.get(y).sort((a, b) => a.x - b.x);
+                            
+                            // 3. Monta o array da linha
+                            let textRow = rowItems.map(i => i.text);
+                            allRows.push(textRow);
                         });
                     }
 
-                    // Transforma em uma matriz de linhas
-                    const rows = allTextItems.map(item => [item]);
-
-                    const worksheet = XLSX.utils.aoa_to_sheet([
-                        ["Conteúdo Extraído"],
-                        ...rows
-                    ]);
-
+                    // Gera a planilha com a matriz de células prontas
+                    const worksheet = XLSX.utils.aoa_to_sheet(allRows);
                     const workbook = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
 
-                    // Gera o arquivo binário
                     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
                     const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
                     lastName = file.name.replace(/\.pdf$/i, '');
                     lastBlob = blob;
-
-                    // Adiciona ao ZIP de qualquer forma (caso tenha mais de um)
                     zip.file(`${lastName}.xlsx`, blob);
                 } catch (e) {
                     console.error('Erro no arquivo ' + file.name, e);
@@ -180,9 +194,8 @@
 
             progressStatus.innerText = "Baixando...";
             
-            // CORREÇÃO: Lógica de download condicional correta
+            // Lógica de download
             if (total === 1 && lastBlob) {
-                // Se for 1 arquivo, baixa o Excel direto, ignorando o JSZip
                 const url = URL.createObjectURL(lastBlob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -191,12 +204,11 @@
                 URL.revokeObjectURL(url);
                 progressStatus.classList.add('hidden');
             } else {
-                // Se for mais de 1 arquivo, gera o ZIP com o nome correto
                 zip.generateAsync({ type: 'blob' }).then(content => {
                     const url = URL.createObjectURL(content);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'documentos_convertidos.zip'; // O nome será sempre .zip aqui
+                    a.download = 'documentos_convertidos.zip';
                     a.click();
                     URL.revokeObjectURL(url);
                     progressStatus.classList.add('hidden');
