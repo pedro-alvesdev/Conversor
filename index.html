@@ -132,7 +132,7 @@
         // =========================================================
         // COMUNICAÇÃO COM O SERVIDOR HUGGING FACE (APENAS WORD)
         // =========================================================
-        async function converterParaWordNaNuvem(file) {
+       async function converterParaWordNaNuvem(file) {
             const API_URL = "https://ordephra-conversorph.hf.space/convert";
             const formData = new FormData();
             formData.append("file", file); 
@@ -143,9 +143,13 @@
                     body: formData
                 });
 
+                // NOVIDADE: Verifica se o servidor enviou um alerta de erro
                 if (!response.ok) {
-                    throw new Error("Erro no servidor da API ao converter o arquivo.");
+                    const erroTexto = await response.text();
+                    throw new Error("Erro no servidor: " + erroTexto);
                 }
+                
+                // Se estiver tudo OK, baixa o documento
                 return await response.blob(); 
             } catch (error) {
                 console.error("Falha de conexão com a API:", error);
