@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Converter - Excel & Word</title>
+    <title>PDF Converter - Excel & Word Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
     
     <style>
         .drop-zone {
@@ -19,7 +18,6 @@
             border-color: #1d4ed8;
             background-color: #eff6ff;
         }
-        /* Estilo para esconder os radio buttons padrão e customizar */
         input[type="radio"]:checked + label {
             background-color: #eff6ff;
             border-color: #3b82f6;
@@ -34,14 +32,14 @@
             <span class="text-blue-600 font-extrabold text-2xl tracking-tight">PDF<span class="text-gray-800">Converter</span></span>
         </div>
         <nav class="hidden md:flex space-x-6 text-sm text-gray-600">
-            <a href="#" class="hover:text-blue-600">Privacidade (Offline)</a>
+            <span class="text-green-600 font-medium">⚡ Servidor Integrado</span>
         </nav>
     </header>
 
     <main class="w-full max-w-4xl px-4 py-8 flex flex-col items-center flex-grow justify-center">
         <div class="text-center mb-8">
-            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Converta seus PDFs localmente</h1>
-            <p class="text-gray-600 text-sm md:text-base">Escolha entre Excel (Múltiplas Abas) ou Word (Arquivo Único ou ZIP).</p>
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Conversão de Alta Fidelidade</h1>
+            <p class="text-gray-600 text-sm md:text-base">Excel processado localmente. Word estruturado via API de alta performance.</p>
         </div>
 
         <div id="dropZone" class="drop-zone w-full max-w-2xl bg-white rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer shadow-lg mb-6">
@@ -71,7 +69,7 @@
                         </label>
                     </div>
                 </div>
-                <p class="text-xs text-gray-400 text-center mt-3" id="formatHint">Múltiplos PDFs virarão abas em um único Excel.</p>
+                <p class="text-xs text-gray-400 text-center mt-3" id="formatHint">Múltiplos PDFs virarão abas em um único Excel (Offline).</p>
             </div>
 
             <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100 max-h-48 overflow-y-auto">
@@ -101,22 +99,19 @@
 
         let selectedFiles = [];
 
-        // Atualiza a dica dependendo do formato escolhido
         formatRadios.forEach(radio => {
             radio.addEventListener('change', (e) => {
                 if(e.target.value === 'excel') {
-                    formatHint.innerText = "Múltiplos PDFs virarão abas em um único Excel.";
+                    formatHint.innerText = "Múltiplos PDFs virarão abas em um único Excel (Offline).";
                 } else {
-                    formatHint.innerText = "Múltiplos PDFs serão baixados juntos em um arquivo .ZIP.";
+                    formatHint.innerText = "Alta fidelidade via Nuvem. PDFs múltiplos viram um .ZIP.";
                 }
             });
         });
 
-        // Eventos de Drag & Drop
         dropZone.addEventListener('click', () => fileInput.click());
         ['dragenter', 'dragover'].forEach(eName => dropZone.addEventListener(eName, e => { e.preventDefault(); dropZone.classList.add('dragover'); }, false));
         ['dragleave', 'drop'].forEach(eName => dropZone.addEventListener(eName, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }, false));
-        
         dropZone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
         fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
@@ -134,10 +129,42 @@
             }
         }
 
+        // =========================================================
+        // COMUNICAÇÃO COM O SERVIDOR HUGGING FACE (APENAS WORD)
+        // =========================================================
+        async function converterParaWordNaNuvem(file) {
+            const API_URL = "https://ordephra-conversorph.hf.space/convert";
+            const formData = new FormData();
+            formData.append("file", file); 
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error("Erro no servidor da API ao converter o arquivo.");
+                }
+                return await response.blob(); 
+            } catch (error) {
+                console.error("Falha de conexão com a API:", error);
+                throw error; 
+            }
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
         convertBtn.addEventListener('click', async () => {
             if (selectedFiles.length === 0) return;
             
-            // Verifica o formato selecionado
             const selectedFormat = document.querySelector('input[name="formatOutput"]:checked').value;
             
             progressStatus.classList.remove('hidden');
@@ -148,7 +175,7 @@
             let current = 0;
 
             if (selectedFormat === 'excel') {
-                // =============== LÓGICA DO EXCEL ===============
+                // =============== LÓGICA DO EXCEL (MANTIDA INTACTA 100% OFFLINE) ===============
                 const workbook = XLSX.utils.book_new();
                 for (const file of selectedFiles) {
                     progressStatus.innerText = `Lendo PDF ${current + 1}/${total}...`;
@@ -213,97 +240,44 @@
                 downloadBlob(blob, total === 1 ? `${selectedFiles[0].name.replace(/\.pdf$/i, '')}.xlsx` : `Documentos_Compilados.xlsx`);
                 
             } else if (selectedFormat === 'word') {
-                // =============== LÓGICA DO WORD ===============
+                // =============== LÓGICA DO WORD (API HUGGING FACE) ===============
                 const zip = new JSZip();
                 let lastBlob = null;
                 let lastName = "";
 
                 for (const file of selectedFiles) {
-                    progressStatus.innerText = `Gerando Word ${current + 1}/${total}...`;
+                    progressStatus.innerText = `Enviando para o Motor na Nuvem (${current + 1}/${total})...`;
                     try {
-                        const arrayBuffer = await file.arrayBuffer();
-                        const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
+                        // Chama a nova função conectada ao seu servidor Python
+                        const wordBlob = await converterParaWordNaNuvem(file);
                         
-                        let docxParagraphs = [];
-
-                        for (let p = 1; p <= pdf.numPages; p++) {
-                            const page = await pdf.getPage(p);
-                            const textContent = await page.getTextContent();
-                            let rowsMap = new Map();
-
-                            // Usamos a mesma lógica de detecção de linhas para criar os parágrafos do Word
-                            textContent.items.forEach(item => {
-                                let textoLimpo = item.str.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '').trim();
-                                if (textoLimpo === "") return;
-                                let x = item.transform[4], y = item.transform[5], width = item.width; 
-                                let coordY = Math.round(y / 4) * 4; 
-                                if (!rowsMap.has(coordY)) rowsMap.set(coordY, []);
-                                rowsMap.get(coordY).push({ text: textoLimpo, x: x, width: width });
-                            });
-
-                            let sortedY = Array.from(rowsMap.keys()).sort((a, b) => b - a);
-                            sortedY.forEach(y => {
-                                let rowItems = rowsMap.get(y).sort((a, b) => a.x - b.x);
-                                
-                                // Para o Word, agrupamos tudo da mesma linha com um pequeno espaçamento para simular a tabela visualmente
-                                let linhaCompleta = rowItems.map(item => item.text).join("   |   ");
-                                
-                                docxParagraphs.push(new docx.Paragraph({
-                                    children: [new docx.TextRun(linhaCompleta)]
-                                }));
-                            });
-                            
-                            // Adiciona uma quebra de página visual se não for a última
-                            if(p < pdf.numPages) {
-                                docxParagraphs.push(new docx.Paragraph({ children: [new docx.TextRun({ text: "--- Quebra de Página ---", color: "888888" })] }));
-                            }
-                        }
-
-                        // Constrói o Documento Word
-                        const doc = new docx.Document({
-                            sections: [{
-                                properties: {},
-                                children: docxParagraphs
-                            }]
-                        });
-
-                        const blob = await docx.Packer.toBlob(doc);
                         lastName = file.name.replace(/\.pdf$/i, '');
-                        lastBlob = blob;
-                        zip.file(`${lastName}.docx`, blob);
+                        lastBlob = wordBlob;
+                        zip.file(`${lastName}.docx`, wordBlob);
 
-                    } catch (e) { console.error(e); }
+                    } catch (e) { 
+                        console.error('Erro na conversão do arquivo ' + file.name, e);
+                        alert(`Houve um erro ao processar o arquivo: ${file.name}. Verifique a conexão.`);
+                    }
                     current++;
                 }
 
-                progressStatus.innerText = "Gerando pacote...";
+                progressStatus.innerText = "Finalizando pacote Word...";
                 
-                // Lógica ZIP ou Único
                 if (total === 1 && lastBlob) {
                     downloadBlob(lastBlob, `${lastName}.docx`);
-                } else {
+                } else if (total > 1) {
                     zip.generateAsync({ type: 'blob' }).then(content => {
                         downloadBlob(content, 'Documentos_Word.zip');
                     });
                 }
             }
             
-            // Restaura o botão
             progressStatus.innerText = "Concluído!";
             setTimeout(() => progressStatus.classList.add('hidden'), 3000);
             convertBtn.disabled = false;
             convertBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         });
-
-        // Função utilitária para fazer download
-        function downloadBlob(blob, filename) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
     </script>
 </body>
 </html>
