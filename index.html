@@ -10,6 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-6 font-sans">
+
     <div class="bg-white p-8 rounded-2xl shadow-xl max-w-lg w-full">
         <h1 class="text-2xl font-bold text-gray-800 mb-2 text-center">Conversor em Lote de PDF para Excel</h1>
         <p class="text-sm text-gray-500 mb-6 text-center">Selecione múltiplos arquivos. Cada um gerará um Excel, baixados juntos em um arquivo .zip.</p>
@@ -73,6 +74,7 @@
                     const workbook = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
 
+                    // Gera o arquivo diretamente como um ArrayBuffer binário válido
                     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
                     const blob = new Blob([excelBuffer], { 
                         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
