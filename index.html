@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conversor do PH</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -43,13 +44,18 @@
         </div>
         <nav class="hidden md:flex items-center space-x-6 text-sm text-gray-600">
             <button id="privacyBtn" class="hover:text-blue-600 font-medium cursor-pointer flex items-center gap-1 transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+                Privacidade
+            </button>
+        </nav>
     </header>
 
     <main class="w-full max-w-4xl px-4 py-8 flex flex-col items-center flex-grow justify-center">
         <div class="text-center mb-8">
             <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Conversão de PDF</h1>
-            <p class="text-gray-600 text-sm md:text-base">Arquivos processados localmente</p>
+            <p class="text-gray-600 text-sm md:text-base">Arquivos processados localmente e na nuvem segura.</p>
         </div>
 
         <div id="dropZone" class="drop-zone w-full max-w-2xl bg-white rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer shadow-lg mb-6">
@@ -101,9 +107,48 @@
         </div>
     </main>
 
+    <div id="privacyModal" class="fixed inset-0 bg-gray-900/50 z-50 hidden flex items-center justify-center p-4">
+        <div id="modalContent" class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 modal-enter relative">
+            
+            <button id="closeModalX" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div class="flex flex-col items-center mb-6">
+                <div class="bg-blue-100 p-3 rounded-full mb-4">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">Privacidade dos seus Arquivos</h2>
+            </div>
+
+            <div class="space-y-4 text-gray-600 text-sm leading-relaxed">
+                <p>Este sistema foi desenvolvido para ser seguro e transparente. Veja como seus dados são tratados:</p>
+                
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <h3 class="font-bold text-gray-800 flex items-center gap-2 mb-1">
+                        📊 Conversão para Excel
+                    </h3>
+                    <p>Acontece <strong>100% no seu navegador</strong>. O arquivo não sai do seu computador em nenhum momento.</p>
+                </div>
+
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <h3 class="font-bold text-blue-800 flex items-center gap-2 mb-1">
+                        📝 Word e 📽️ PowerPoint
+                    </h3>
+                    <p>Os arquivos são enviados para um <strong>servidor seguro</strong> para processamento de alta fidelidade. Eles permanecem apenas na memória temporária e são <strong>destruídos instantaneamente</strong> após o download. Nada é armazenado em discos ou bancos de dados.</p>
+                </div>
+            </div>
+
+            <button id="closeModalBtn" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition cursor-pointer">
+                Entendi, continuar usando
+            </button>
+        </div>
+    </div>
+
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+        // Constantes do DOM
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const actionSection = document.getElementById('actionSection');
@@ -112,34 +157,34 @@
         const progressStatus = document.getElementById('progressStatus');
         const formatHint = document.getElementById('formatHint');
         const formatRadios = document.getElementsByName('formatOutput');
+        
+        // Elementos do Modal de Privacidade
         const privacyModal = document.getElementById('privacyModal');
         const modalContent = document.getElementById('modalContent');
         const privacyBtn = document.getElementById('privacyBtn');
         const closeModalBtn = document.getElementById('closeModalBtn');
         const closeModalX = document.getElementById('closeModalX');
 
+        // Funções do Modal
         function openModal() {
             privacyModal.classList.remove('hidden');
-            // Pequeno delay para a animação CSS funcionar
             setTimeout(() => modalContent.classList.add('modal-enter-active'), 10);
         }
 
         function closeModal() {
             modalContent.classList.remove('modal-enter-active');
-            // Espera a animação acabar antes de esconder o fundo
             setTimeout(() => privacyModal.classList.add('hidden'), 300);
         }
 
-        // Eventos para abrir e fechar
         privacyBtn.addEventListener('click', openModal);
         closeModalBtn.addEventListener('click', closeModal);
         closeModalX.addEventListener('click', closeModal);
 
-        // Fecha se o usuário clicar no fundo escuro (fora da caixa branca)
         privacyModal.addEventListener('click', (e) => {
             if (e.target === privacyModal) closeModal();
         });
 
+        // Lógica de arquivos
         let selectedFiles = [];
 
         formatRadios.forEach(radio => {
@@ -147,7 +192,6 @@
                 if(e.target.value === 'excel') {
                     formatHint.innerText = "Múltiplos PDFs virarão abas em um único Excel.";
                 } else {
-                    // Atualiza a dica mostrando se é WORD ou PPTX
                     formatHint.innerText = `Alta fidelidade via Nuvem para ${e.target.value.toUpperCase()}. PDFs múltiplos viram um .ZIP.`;
                 }
             });
@@ -173,9 +217,8 @@
             }
         }
 
-     
-       async function converterNaNuvem(file, formato) {
-            // Se formato for word, usa a rota /convert. Se for pptx, usa /convert-pptx
+        // Chamada de API da Nuvem
+        async function converterNaNuvem(file, formato) {
             const endpoint = formato === 'word' ? '/convert' : '/convert-pptx';
             const API_URL = `https://ordephra-conversorph.hf.space${endpoint}`;
             
@@ -209,6 +252,7 @@
             URL.revokeObjectURL(url);
         }
 
+        // Motor de Conversão principal
         convertBtn.addEventListener('click', async () => {
             if (selectedFiles.length === 0) return;
             
@@ -287,24 +331,20 @@
                 downloadBlob(blob, total === 1 ? `${selectedFiles[0].name.replace(/\.pdf$/i, '')}.xlsx` : `Documentos_Compilados.xlsx`);
                 
             } else if (selectedFormat === 'word' || selectedFormat === 'pptx') {
-                // =============== LÓGICA DO WORD E PPTX (API HUGGING FACE) ===============
+                // =============== LÓGICA DO WORD E PPTX ===============
                 const zip = new JSZip();
                 let lastBlob = null;
                 let lastName = "";
                 
-                // Define a extensão com base na escolha do usuário
                 let extensao = selectedFormat === 'word' ? 'docx' : 'pptx';
 
                 for (const file of selectedFiles) {
                     progressStatus.innerText = `Enviando para a Nuvem (${current + 1}/${total})...`;
                     try {
-                        // Passa o arquivo e qual formato foi escolhido
                         const fileBlob = await converterNaNuvem(file, selectedFormat);
-                        
                         lastName = file.name.replace(/\.pdf$/i, '');
                         lastBlob = fileBlob;
                         zip.file(`${lastName}.${extensao}`, fileBlob);
-
                     } catch (e) { 
                         console.error('Erro na conversão do arquivo ' + file.name, e);
                         alert(`Houve um erro ao processar o arquivo: ${file.name}. Verifique a conexão.`);
@@ -329,42 +369,5 @@
             convertBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         });
     </script>
-                    <div id="privacyModal" class="fixed inset-0 bg-gray-900/50 z-50 hidden flex items-center justify-center p-4">
-        <div id="modalContent" class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 modal-enter relative">
-            
-            <button id="closeModalX" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-
-            <div class="flex flex-col items-center mb-6">
-                <div class="bg-blue-100 p-3 rounded-full mb-4">
-                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-                </div>
-                <h2 class="text-2xl font-bold text-gray-800">Privacidade dos seus Arquivos</h2>
-            </div>
-
-            <div class="space-y-4 text-gray-600 text-sm leading-relaxed">
-                <p>Este sistema foi desenvolvido para ser seguro e transparente. Veja como seus dados são tratados:</p>
-                
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <h3 class="font-bold text-gray-800 flex items-center gap-2 mb-1">
-                        📊 Conversão para Excel
-                    </h3>
-                    <p>Acontece <strong>100% no seu navegador</strong>. O arquivo não sai do seu computador em nenhum momento.</p>
-                </div>
-
-                <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <h3 class="font-bold text-blue-800 flex items-center gap-2 mb-1">
-                        📝 Word e 📽️ PowerPoint
-                    </h3>
-                    <p>Os arquivos são enviados para um <strong>servidor seguro</strong> para processamento de alta fidelidade. Eles permanecem apenas na memória temporária e são <strong>destruídos instantaneamente</strong> após o download. Nada é armazenado em discos ou bancos de dados.</p>
-                </div>
-            </div>
-
-            <button id="closeModalBtn" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition cursor-pointer">
-                Entendi, continuar usando
-            </button>
-        </div>
-    </div>
 </body>
 </html>
