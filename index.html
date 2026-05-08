@@ -32,14 +32,14 @@
             <span class="text-blue-600 font-extrabold text-2xl tracking-tight">Conversor <span class="text-gray-800">do PH</span></span>
         </div>
         <nav class="hidden md:flex space-x-6 text-sm text-gray-600">
-            <span class="text-green-600 font-medium">⚡ Servidor Integrado</span>
+            <span class="text-green-600 font-medium">Privacidade</span>
         </nav>
     </header>
 
     <main class="w-full max-w-4xl px-4 py-8 flex flex-col items-center flex-grow justify-center">
         <div class="text-center mb-8">
-            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Conversão de Alta Fidelidade</h1>
-            <p class="text-gray-600 text-sm md:text-base">Excel processado localmente. Word estruturado via API de alta performance.</p>
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Conversão de PDF</h1>
+            <p class="text-gray-600 text-sm md:text-base">Arquivos processaos localmente</p>
         </div>
 
         <div id="dropZone" class="drop-zone w-full max-w-2xl bg-white rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer shadow-lg mb-6">
@@ -68,8 +68,14 @@
                             📝 Word (.docx)
                         </label>
                     </div>
+                    <div>
+                        <input type="radio" name="formatOutput" id="formatPPT" value="pptx" class="hidden">
+                        <label for="formatPPT" class="cursor-pointer border-2 border-gray-200 rounded-lg px-6 py-3 font-semibold text-gray-600 transition flex items-center gap-2">
+                            📽️ PowerPoint (.pptx)
+                        </label>
+                    </div>
                 </div>
-                <p class="text-xs text-gray-400 text-center mt-3" id="formatHint">Múltiplos PDFs virarão abas em um único Excel (Offline).</p>
+                <p class="text-xs text-gray-400 text-center mt-3" id="formatHint">Múltiplos PDFs virarão abas em um único Excel.</p>
             </div>
 
             <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100 max-h-48 overflow-y-auto">
@@ -102,9 +108,10 @@
         formatRadios.forEach(radio => {
             radio.addEventListener('change', (e) => {
                 if(e.target.value === 'excel') {
-                    formatHint.innerText = "Múltiplos PDFs virarão abas em um único Excel (Offline).";
+                    formatHint.innerText = "Múltiplos PDFs virarão abas em um único Excel.";
                 } else {
-                    formatHint.innerText = "Alta fidelidade via Nuvem. PDFs múltiplos viram um .ZIP.";
+                    // Atualiza a dica mostrando se é WORD ou PPTX
+                    formatHint.innerText = `Alta fidelidade via Nuvem para ${e.target.value.toUpperCase()}. PDFs múltiplos viram um .ZIP.`;
                 }
             });
         });
@@ -129,11 +136,12 @@
             }
         }
 
-        // =========================================================
-        // COMUNICAÇÃO COM O SERVIDOR HUGGING FACE (APENAS WORD)
-        // =========================================================
-       async function converterParaWordNaNuvem(file) {
-            const API_URL = "https://ordephra-conversorph.hf.space/convert";
+     
+       async function converterNaNuvem(file, formato) {
+            // Se formato for word, usa a rota /convert. Se for pptx, usa /convert-pptx
+            const endpoint = formato === 'word' ? '/convert' : '/convert-pptx';
+            const API_URL = `https://ordephra-conversorph.hf.space${endpoint}`;
+            
             const formData = new FormData();
             formData.append("file", file); 
 
@@ -143,13 +151,11 @@
                     body: formData
                 });
 
-                // NOVIDADE: Verifica se o servidor enviou um alerta de erro
                 if (!response.ok) {
                     const erroTexto = await response.text();
                     throw new Error("Erro no servidor: " + erroTexto);
                 }
                 
-                // Se estiver tudo OK, baixa o documento
                 return await response.blob(); 
             } catch (error) {
                 console.error("Falha de conexão com a API:", error);
@@ -179,7 +185,7 @@
             let current = 0;
 
             if (selectedFormat === 'excel') {
-                // =============== LÓGICA DO EXCEL (MANTIDA INTACTA 100% OFFLINE) ===============
+                // =============== LÓGICA DO EXCEL ===============
                 const workbook = XLSX.utils.book_new();
                 for (const file of selectedFiles) {
                     progressStatus.innerText = `Lendo PDF ${current + 1}/${total}...`;
@@ -243,21 +249,24 @@
                 const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 downloadBlob(blob, total === 1 ? `${selectedFiles[0].name.replace(/\.pdf$/i, '')}.xlsx` : `Documentos_Compilados.xlsx`);
                 
-            } else if (selectedFormat === 'word') {
-                // =============== LÓGICA DO WORD (API HUGGING FACE) ===============
+            } else if (selectedFormat === 'word' || selectedFormat === 'pptx') {
+                // =============== LÓGICA DO WORD E PPTX (API HUGGING FACE) ===============
                 const zip = new JSZip();
                 let lastBlob = null;
                 let lastName = "";
+                
+                // Define a extensão com base na escolha do usuário
+                let extensao = selectedFormat === 'word' ? 'docx' : 'pptx';
 
                 for (const file of selectedFiles) {
-                    progressStatus.innerText = `Enviando para o Motor na Nuvem (${current + 1}/${total})...`;
+                    progressStatus.innerText = `Enviando para a Nuvem (${current + 1}/${total})...`;
                     try {
-                        // Chama a nova função conectada ao seu servidor Python
-                        const wordBlob = await converterParaWordNaNuvem(file);
+                        // Passa o arquivo e qual formato foi escolhido
+                        const fileBlob = await converterNaNuvem(file, selectedFormat);
                         
                         lastName = file.name.replace(/\.pdf$/i, '');
-                        lastBlob = wordBlob;
-                        zip.file(`${lastName}.docx`, wordBlob);
+                        lastBlob = fileBlob;
+                        zip.file(`${lastName}.${extensao}`, fileBlob);
 
                     } catch (e) { 
                         console.error('Erro na conversão do arquivo ' + file.name, e);
@@ -266,13 +275,13 @@
                     current++;
                 }
 
-                progressStatus.innerText = "Finalizando pacote Word...";
+                progressStatus.innerText = `Finalizando pacote ${selectedFormat.toUpperCase()}...`;
                 
                 if (total === 1 && lastBlob) {
-                    downloadBlob(lastBlob, `${lastName}.docx`);
+                    downloadBlob(lastBlob, `${lastName}.${extensao}`);
                 } else if (total > 1) {
                     zip.generateAsync({ type: 'blob' }).then(content => {
-                        downloadBlob(content, 'Documentos_Word.zip');
+                        downloadBlob(content, `Documentos_${selectedFormat.toUpperCase()}.zip`);
                     });
                 }
             }
