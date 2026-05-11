@@ -9,38 +9,23 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
     <style>
-        .drop-zone {
-            border: 3px dashed #3b82f6;
-            transition: all 0.3s ease;
-        }
-        .drop-zone.dragover {
-            border-color: #1d4ed8;
-            background-color: #eff6ff;
-        }
-        input[type="radio"]:checked + label {
-            background-color: #eff6ff;
-            border-color: #3b82f6;
-            color: #1d4ed8;
-        }
-        .modal-enter {
-            opacity: 0;
-            transform: scale(0.9);
-            transition: all 0.3s ease-out;
-        }
-        .modal-enter-active {
-            opacity: 1;
-            transform: scale(1);
-        }
-        /* Classe para o item sendo arrastado */
-        .sortable-ghost {
-            opacity: 0.4;
-            background-color: #dbeafe !important;
-        }
+        .drop-zone { border: 3px dashed #3b82f6; transition: all 0.3s ease; }
+        .drop-zone.dragover { border-color: #1d4ed8; background-color: #eff6ff; }
+        input[type="radio"]:checked + label { background-color: #eff6ff; border-color: #3b82f6; color: #1d4ed8; }
+        
+        .modal-enter { opacity: 0; transform: scale(0.9); transition: all 0.3s ease-out; }
+        .modal-enter-active { opacity: 1; transform: scale(1); }
+        .sortable-ghost { opacity: 0.4; background-color: #dbeafe !important; }
+        
+        /* Barra de rolagem customizada para a visualização do PDF */
+        #previewContainer::-webkit-scrollbar { width: 8px; }
+        #previewContainer::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        #previewContainer::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        #previewContainer::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-between font-sans">
@@ -51,9 +36,7 @@
         </div>
         <nav class="hidden md:flex items-center space-x-6 text-sm text-gray-600">
             <button id="privacyBtn" class="hover:text-blue-600 font-medium cursor-pointer flex items-center gap-1 transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8V7a4 4 0 00-8 0v4h8z"></path>
-                </svg>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8V7a4 4 0 00-8 0v4h8z"></path></svg>
                 Privacidade
             </button>
         </nav>
@@ -61,9 +44,10 @@
 
     <main class="w-full max-w-4xl px-4 py-8 flex flex-col items-center flex-grow justify-start mt-4">
         
-        <div class="flex space-x-2 bg-gray-200 p-1 rounded-xl mb-8 max-w-sm mx-auto w-full shadow-inner">
-            <button id="tabConvert" class="flex-1 py-2 px-4 rounded-lg bg-white shadow-sm text-sm font-bold text-blue-600 transition cursor-pointer">🔄 Converter</button>
-            <button id="tabMerge" class="flex-1 py-2 px-4 rounded-lg text-sm font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-300 transition cursor-pointer">➕ Juntar</button>
+        <div class="flex space-x-2 bg-gray-200 p-1 rounded-xl mb-8 max-w-lg mx-auto w-full shadow-inner overflow-x-auto">
+            <button id="tabConvert" class="flex-1 py-2 px-4 rounded-lg bg-white shadow-sm text-sm font-bold text-blue-600 transition cursor-pointer whitespace-nowrap">🔄 Converter</button>
+            <button id="tabMerge" class="flex-1 py-2 px-4 rounded-lg text-sm font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-300 transition cursor-pointer whitespace-nowrap">➕ Juntar</button>
+            <button id="tabSplit" class="flex-1 py-2 px-4 rounded-lg text-sm font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-300 transition cursor-pointer whitespace-nowrap">✂️ Separar</button>
         </div>
 
         <div class="text-center mb-8">
@@ -72,11 +56,9 @@
         </div>
 
         <div id="dropZone" class="drop-zone w-full max-w-2xl bg-white rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer shadow-lg mb-6">
-            <svg class="w-16 h-16 text-blue-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-            </svg>
+            <svg class="w-16 h-16 text-blue-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
             <span class="text-xl font-bold text-gray-700 mb-2">Clique ou solte os arquivos PDF aqui</span>
-            <span class="text-sm text-gray-400">Arraste múltiplos arquivos para organizar</span>
+            <span id="dropZoneHint" class="text-sm text-gray-400">Arraste múltiplos arquivos para converter ou juntar</span>
             <input type="file" id="fileInput" class="hidden" accept="application/pdf" multiple>
         </div>
 
@@ -85,26 +67,24 @@
             <div id="formatSelection" class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100">
                 <h3 class="text-sm font-semibold text-gray-700 mb-3 text-center">Escolha o formato de saída:</h3>
                 <div class="flex flex-wrap gap-3 justify-center">
-                    <div>
-                        <input type="radio" name="formatOutput" id="formatExcel" value="excel" class="hidden" checked>
-                        <label for="formatExcel" class="cursor-pointer border-2 border-gray-200 rounded-lg px-4 py-2 font-semibold text-gray-600 transition flex items-center gap-2">
-                            📊 Excel
-                        </label>
-                    </div>
-                    <div>
-                        <input type="radio" name="formatOutput" id="formatWord" value="word" class="hidden">
-                        <label for="formatWord" class="cursor-pointer border-2 border-gray-200 rounded-lg px-4 py-2 font-semibold text-gray-600 transition flex items-center gap-2">
-                            📝 Word
-                        </label>
-                    </div>
-                    <div>
-                        <input type="radio" name="formatOutput" id="formatPPT" value="pptx" class="hidden">
-                        <label for="formatPPT" class="cursor-pointer border-2 border-gray-200 rounded-lg px-4 py-2 font-semibold text-gray-600 transition flex items-center gap-2">
-                            📽️ PowerPoint
-                        </label>
-                    </div>
+                    <div><input type="radio" name="formatOutput" id="formatExcel" value="excel" class="hidden" checked><label for="formatExcel" class="cursor-pointer border-2 border-gray-200 rounded-lg px-4 py-2 font-semibold text-gray-600 transition flex items-center gap-2">📊 Excel</label></div>
+                    <div><input type="radio" name="formatOutput" id="formatWord" value="word" class="hidden"><label for="formatWord" class="cursor-pointer border-2 border-gray-200 rounded-lg px-4 py-2 font-semibold text-gray-600 transition flex items-center gap-2">📝 Word</label></div>
+                    <div><input type="radio" name="formatOutput" id="formatPPT" value="pptx" class="hidden"><label for="formatPPT" class="cursor-pointer border-2 border-gray-200 rounded-lg px-4 py-2 font-semibold text-gray-600 transition flex items-center gap-2">📽️ PowerPoint</label></div>
                 </div>
                 <p class="text-xs text-gray-400 text-center mt-3" id="formatHint">Múltiplos PDFs virarão abas em um único Excel.</p>
+            </div>
+
+            <div id="splitSelection" class="hidden bg-white rounded-xl shadow-sm p-5 mb-4 border border-gray-100">
+                <div class="flex flex-col md:flex-row gap-4 items-end">
+                    <div class="flex-grow w-full">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Páginas para manter:</label>
+                        <input type="text" id="pageInputOutside" placeholder="Ex: 1-10, 20-30, 50-60, 1, 4, 9" class="w-full border-2 border-gray-200 p-3 rounded-lg text-gray-700 focus:border-blue-500 focus:ring-0 outline-none transition placeholder-gray-300">
+                    </div>
+                    <button id="openPdfPreviewBtn" class="w-full md:w-auto bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-6 py-3 rounded-lg transition shadow-sm border border-gray-200 flex items-center justify-center gap-2 whitespace-nowrap">
+                        👁️ Visualizar PDF
+                    </button>
+                </div>
+                <p class="text-xs text-gray-400 mt-2">Use vírgulas para separar e hífen para intervalos. O restante será deletado.</p>
             </div>
 
             <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100 max-h-80 overflow-y-auto">
@@ -113,28 +93,39 @@
 
             <div class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border">
                 <span id="progressStatus" class="text-sm text-gray-600 hidden font-semibold text-blue-600">Processando...</span>
-                <button id="convertBtn" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center gap-2 ml-auto">
+                <button id="actionBtn" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center gap-2 ml-auto">
                     🚀 Iniciar Conversão
                 </button>
             </div>
         </div>
     </main>
 
-    <div id="privacyModal" class="fixed inset-0 bg-gray-900/50 z-50 hidden flex items-center justify-center p-4">
+    <div id="pdfPreviewModal" class="fixed inset-0 bg-gray-900/90 z-50 hidden flex-col">
+        <div class="bg-white p-4 shadow-md flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
+            <h2 class="font-bold text-xl text-gray-800 flex items-center gap-2">👁️ Pré-visualização</h2>
+            
+            <div class="flex items-center gap-3 w-full md:w-1/2">
+                <input type="text" id="pageInputInside" placeholder="Quais páginas separar? Ex: 1-5, 8, 12" class="w-full border-2 border-gray-200 p-2 rounded-lg text-gray-700 outline-none focus:border-blue-500">
+                <button id="closePdfPreviewBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold px-4 py-2 rounded-lg transition whitespace-nowrap">
+                    Fechar X
+                </button>
+            </div>
+        </div>
+        
+        <div id="previewContainer" class="flex-grow overflow-y-auto p-6 flex flex-col items-center gap-6">
+            </div>
+    </div>
+
+    <div id="privacyModal" class="fixed inset-0 bg-gray-900/50 z-[60] hidden flex items-center justify-center p-4">
         <div id="modalContent" class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 modal-enter relative">
-            <button id="closeModalX" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
+            <button id="closeModalX" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             <div class="flex flex-col items-center mb-6">
-                <div class="bg-blue-100 p-3 rounded-full mb-4">
-                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-                </div>
-                <h2 class="text-2xl font-bold text-gray-800">Privacidade dos seus Arquivos</h2>
+                <div class="bg-blue-100 p-3 rounded-full mb-4"><svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg></div>
+                <h2 class="text-2xl font-bold text-gray-800">Privacidade dos Arquivos</h2>
             </div>
             <div class="space-y-4 text-gray-600 text-sm leading-relaxed">
-                <p>Este sistema foi desenvolvido para ser seguro e transparente. Veja como seus dados são tratados:</p>
                 <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <h3 class="font-bold text-gray-800 flex items-center gap-2 mb-1">📊 Excel e ➕ Junção de PDF</h3>
+                    <h3 class="font-bold text-gray-800 flex items-center gap-2 mb-1">📊 Excel, ➕ Juntar e ✂️ Separar</h3>
                     <p>Acontecem <strong>100% no seu navegador</strong>. O arquivo não sai do seu computador em nenhum momento.</p>
                 </div>
                 <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
@@ -142,145 +133,177 @@
                     <p>Enviados para um <strong>servidor seguro</strong> e destruídos instantaneamente após o download. Nenhum dado é salvo.</p>
                 </div>
             </div>
-            <button id="closeModalBtn" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition cursor-pointer">
-                Entendi, continuar usando
-            </button>
+            <button id="closeModalBtn" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition cursor-pointer">Entendi, continuar usando</button>
         </div>
     </div>
 
     <script>
-        // Configuração do leitor de PDF
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // Constantes do DOM
+        // Constantes do DOM Principais
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const actionSection = document.getElementById('actionSection');
         const fileList = document.getElementById('fileList');
-        const convertBtn = document.getElementById('convertBtn');
+        const actionBtn = document.getElementById('actionBtn');
         const progressStatus = document.getElementById('progressStatus');
+        
+        // Elementos Dinâmicos de Seções
         const formatSelection = document.getElementById('formatSelection');
+        const splitSelection = document.getElementById('splitSelection');
+        const dropZoneHint = document.getElementById('dropZoneHint');
         const formatHint = document.getElementById('formatHint');
         const formatRadios = document.getElementsByName('formatOutput');
         
-        // Elementos das Abas e Títulos
+        // Elementos das Abas e Textos
         const tabConvert = document.getElementById('tabConvert');
         const tabMerge = document.getElementById('tabMerge');
+        const tabSplit = document.getElementById('tabSplit');
         const mainTitle = document.getElementById('mainTitle');
         const mainSubtitle = document.getElementById('mainSubtitle');
 
-        // Modal
-        const privacyModal = document.getElementById('privacyModal');
-        const modalContent = document.getElementById('modalContent');
-        const privacyBtn = document.getElementById('privacyBtn');
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        const closeModalX = document.getElementById('closeModalX');
+        // Elementos do Modal de Visualização de PDF
+        const pdfPreviewModal = document.getElementById('pdfPreviewModal');
+        const previewContainer = document.getElementById('previewContainer');
+        const openPdfPreviewBtn = document.getElementById('openPdfPreviewBtn');
+        const closePdfPreviewBtn = document.getElementById('closePdfPreviewBtn');
+        
+        // Campos Espelhados de Paginação
+        const pageInputOutside = document.getElementById('pageInputOutside');
+        const pageInputInside = document.getElementById('pageInputInside');
 
-        // Estado Global
-        let selectedFiles = []; // Agora guardará objetos: { id, file, thumb }
-        let currentMode = 'convert'; // 'convert' ou 'merge'
+        let selectedFiles = []; 
+        let currentMode = 'convert'; // 'convert', 'merge', 'split'
 
-        // Inicializa o arrastar e soltar da lista
-        new Sortable(fileList, {
-            animation: 150,
-            ghostClass: 'sortable-ghost',
-        });
+        new Sortable(fileList, { animation: 150, ghostClass: 'sortable-ghost' });
+
+        // ================== LÓGICA DE SINCRONIZAÇÃO DOS INPUTS DE PÁGINAS ==================
+        pageInputOutside.addEventListener('input', (e) => pageInputInside.value = e.target.value);
+        pageInputInside.addEventListener('input', (e) => pageInputOutside.value = e.target.value);
+
+        // ================== PARSER DE PÁGINAS (Transforma '1-3, 5' em [0, 1, 2, 4]) ==================
+        function parsePagesString(inputStr, totalPages) {
+            let pagesSet = new Set();
+            let parts = inputStr.split(',');
+            
+            for (let part of parts) {
+                part = part.trim();
+                if (!part) continue;
+                
+                if (part.includes('-')) {
+                    let [start, end] = part.split('-');
+                    start = parseInt(start);
+                    end = parseInt(end);
+                    if (start && end && start <= end && start > 0 && end <= totalPages) {
+                        for (let i = start; i <= end; i++) pagesSet.add(i - 1);
+                    }
+                } else {
+                    let num = parseInt(part);
+                    if (num > 0 && num <= totalPages) pagesSet.add(num - 1);
+                }
+            }
+            return Array.from(pagesSet).sort((a, b) => a - b);
+        }
 
         // ================== LÓGICA DAS ABAS ==================
+        function updateTabStyles(activeTab) {
+            [tabConvert, tabMerge, tabSplit].forEach(tab => {
+                if (tab === activeTab) {
+                    tab.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                    tab.classList.remove('text-gray-500', 'hover:bg-gray-300');
+                } else {
+                    tab.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                    tab.classList.add('text-gray-500', 'hover:bg-gray-300');
+                }
+            });
+        }
+
         function setMode(mode) {
             currentMode = mode;
+            selectedFiles = []; // Limpa a lista ao trocar de modo
+            actionSection.classList.add('hidden');
+            
             if (mode === 'convert') {
-                tabConvert.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
-                tabConvert.classList.remove('text-gray-500', 'hover:bg-gray-300');
-                tabMerge.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
-                tabMerge.classList.add('text-gray-500', 'hover:bg-gray-300');
-                
+                updateTabStyles(tabConvert);
                 mainTitle.innerText = "Conversão de PDF";
-                mainSubtitle.innerText = "Arquivos processados localmente e na nuvem segura.";
+                mainSubtitle.innerText = "Excel local. Word e PPTX via nuvem segura.";
+                dropZoneHint.innerText = "Arraste múltiplos arquivos para converter em lote";
                 formatSelection.classList.remove('hidden');
-                convertBtn.innerHTML = '🚀 Iniciar Conversão';
-            } else {
-                tabMerge.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
-                tabMerge.classList.remove('text-gray-500', 'hover:bg-gray-300');
-                tabConvert.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
-                tabConvert.classList.add('text-gray-500', 'hover:bg-gray-300');
+                splitSelection.classList.add('hidden');
+                actionBtn.innerHTML = '🚀 Iniciar Conversão';
+                fileInput.multiple = true;
                 
+            } else if (mode === 'merge') {
+                updateTabStyles(tabMerge);
                 mainTitle.innerText = "Juntar PDFs";
-                mainSubtitle.innerText = "Arraste os arquivos para ordenar. Processamento 100% offline.";
+                mainSubtitle.innerText = "Organize a ordem dos arquivos e junte 100% offline.";
+                dropZoneHint.innerText = "Arraste múltiplos arquivos para organizar";
                 formatSelection.classList.add('hidden');
-                convertBtn.innerHTML = '🔗 Juntar PDFs';
+                splitSelection.classList.add('hidden');
+                actionBtn.innerHTML = '🔗 Juntar PDFs';
+                fileInput.multiple = true;
+                
+            } else if (mode === 'split') {
+                updateTabStyles(tabSplit);
+                mainTitle.innerText = "Separar PDF";
+                mainSubtitle.innerText = "Extraia páginas específicas de um arquivo offline.";
+                dropZoneHint.innerText = "Arraste APENAS UM arquivo PDF por vez";
+                formatSelection.classList.add('hidden');
+                splitSelection.classList.remove('hidden');
+                actionBtn.innerHTML = '✂️ Extrair Páginas';
+                fileInput.multiple = false; // Apenas um arquivo no modo separar
             }
-            renderFileList();
         }
 
         tabConvert.addEventListener('click', () => setMode('convert'));
         tabMerge.addEventListener('click', () => setMode('merge'));
+        tabSplit.addEventListener('click', () => setMode('split'));
 
-        // ================== LÓGICA DO MODAL ==================
-        function openModal() {
-            privacyModal.classList.remove('hidden');
-            setTimeout(() => modalContent.classList.add('modal-enter-active'), 10);
-        }
-        function closeModal() {
-            modalContent.classList.remove('modal-enter-active');
-            setTimeout(() => privacyModal.classList.add('hidden'), 300);
-        }
-        privacyBtn.addEventListener('click', openModal);
-        closeModalBtn.addEventListener('click', closeModal);
-        closeModalX.addEventListener('click', closeModal);
-        privacyModal.addEventListener('click', (e) => { if (e.target === privacyModal) closeModal(); });
-
-        // ================== DICAS DE FORMATO ==================
-        formatRadios.forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                if(e.target.value === 'excel') formatHint.innerText = "Múltiplos PDFs virarão abas em um único Excel.";
-                else formatHint.innerText = `Alta fidelidade via Nuvem para ${e.target.value.toUpperCase()}. PDFs múltiplos viram um .ZIP.`;
-            });
-        });
-
-        // ================== UPLOAD E MINIATURAS ==================
+        // ================== LÓGICA DE UPLOAD E LISTAGEM ==================
         dropZone.addEventListener('click', () => fileInput.click());
         ['dragenter', 'dragover'].forEach(eName => dropZone.addEventListener(eName, e => { e.preventDefault(); dropZone.classList.add('dragover'); }, false));
         ['dragleave', 'drop'].forEach(eName => dropZone.addEventListener(eName, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }, false));
         dropZone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
         fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
-        // Função mágica para desenhar a capinha do PDF
         async function generateThumbnail(file) {
             try {
                 const arrayBuffer = await file.arrayBuffer();
                 const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 const page = await pdf.getPage(1);
-                const viewport = page.getViewport({ scale: 0.3 }); // Reduzido para ficar leve
+                const viewport = page.getViewport({ scale: 0.3 });
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 await page.render({ canvasContext: ctx, viewport: viewport }).promise;
                 return canvas.toDataURL();
-            } catch (e) {
-                console.error("Erro ao gerar miniatura:", e);
-                return null;
-            }
+            } catch (e) { return null; }
         }
 
         async function handleFiles(files) {
-            const newFiles = Array.from(files).filter(file => file.type === 'application/pdf');
+            let newFiles = Array.from(files).filter(file => file.type === 'application/pdf');
             if (newFiles.length === 0) return;
 
+            // Restrição: Se for separar, pega só o primeiro arquivo arrastado
+            if (currentMode === 'split') {
+                newFiles = [newFiles[0]]; 
+                selectedFiles = []; // Limpa a lista anterior
+            }
+
             actionSection.classList.remove('hidden');
-            progressStatus.innerText = "Gerando miniaturas...";
+            progressStatus.innerText = "Lendo arquivo(s)...";
             progressStatus.classList.remove('hidden');
-            convertBtn.disabled = true;
+            actionBtn.disabled = true;
 
             for (let file of newFiles) {
                 const id = Math.random().toString(36).substr(2, 9);
                 const thumb = await generateThumbnail(file);
-                selectedFiles.push({ id, file, thumb }); // Salva o objeto rico
+                selectedFiles.push({ id, file, thumb }); 
             }
 
             progressStatus.classList.add('hidden');
-            convertBtn.disabled = false;
+            actionBtn.disabled = false;
             renderFileList();
         }
 
@@ -291,7 +314,6 @@
                 li.setAttribute('data-id', fileObj.id);
                 
                 if (currentMode === 'merge') {
-                    // Visual com miniatura e drag-and-drop
                     li.className = "py-3 px-4 flex items-center bg-gray-50 border border-gray-200 rounded-xl cursor-move shadow-sm hover:shadow transition";
                     li.innerHTML = `
                         <span class="mr-4 text-gray-400 text-xl font-bold cursor-grab active:cursor-grabbing">⋮⋮</span>
@@ -300,15 +322,85 @@
                         <span class="text-xs text-gray-400 ml-2 whitespace-nowrap">${(fileObj.file.size/1024/1024).toFixed(2)} MB</span>
                     `;
                 } else {
-                    // Visual simples para conversão
-                    li.className = "py-2 px-3 flex justify-between items-center border border-gray-100 rounded-lg bg-gray-50";
-                    li.innerHTML = `<span class="truncate pr-4">📄 ${fileObj.file.name}</span> <span class="text-xs text-gray-400 whitespace-nowrap">${(fileObj.file.size/1024/1024).toFixed(2)} MB</span>`;
+                    li.className = "py-3 px-4 flex justify-between items-center border border-gray-200 rounded-xl bg-gray-50 shadow-sm";
+                    li.innerHTML = `
+                        <div class="flex items-center truncate">
+                            ${fileObj.thumb ? `<img src="${fileObj.thumb}" class="w-8 h-10 object-cover border border-gray-300 mr-3 shadow-sm rounded">` : ``}
+                            <span class="truncate font-medium text-gray-700">${fileObj.file.name}</span>
+                        </div>
+                        <span class="text-xs text-gray-400 whitespace-nowrap ml-2">${(fileObj.file.size/1024/1024).toFixed(2)} MB</span>
+                    `;
                 }
                 fileList.appendChild(li);
             });
         }
 
-        // ================== LÓGICA DE PROCESSAMENTO ==================
+        // ================== RENDERIZADOR DE PRÉ-VISUALIZAÇÃO (MODAL PDF) ==================
+        openPdfPreviewBtn.addEventListener('click', async () => {
+            if(selectedFiles.length === 0) return;
+            pdfPreviewModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // Trava scroll da pagina de fundo
+            
+            previewContainer.innerHTML = '<span class="text-white font-bold animate-pulse mt-10">Processando visualização...</span>';
+            
+            try {
+                const arrayBuffer = await selectedFiles[0].file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                previewContainer.innerHTML = ''; // Limpa o carregando
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 1.2 }); // Boa resolução para leitura
+                    
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    canvas.className = "shadow-2xl rounded max-w-full h-auto mb-2";
+                    
+                    const wrapper = document.createElement('div');
+                    wrapper.className = "flex flex-col items-center bg-gray-800 p-4 rounded-xl w-full max-w-3xl";
+                    wrapper.innerHTML = `<span class="text-gray-300 font-bold mb-3 text-lg">Página ${i}</span>`;
+                    
+                    wrapper.appendChild(canvas);
+                    previewContainer.appendChild(wrapper);
+                    
+                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                }
+            } catch(e) {
+                previewContainer.innerHTML = '<span class="text-red-400 font-bold mt-10">Erro ao carregar pré-visualização do PDF.</span>';
+            }
+        });
+
+        closePdfPreviewBtn.addEventListener('click', () => {
+            pdfPreviewModal.classList.add('hidden');
+            document.body.style.overflow = 'auto'; // Destrava scroll
+            previewContainer.innerHTML = ''; // Limpa a memória das imagens
+        });
+
+        // ================== MODAL DE PRIVACIDADE MANTIDO INTACTO ==================
+        const privacyModal = document.getElementById('privacyModal');
+        const modalContent = document.getElementById('modalContent');
+        document.getElementById('privacyBtn').addEventListener('click', () => {
+            privacyModal.classList.remove('hidden');
+            setTimeout(() => modalContent.classList.add('modal-enter-active'), 10);
+        });
+        const closePriv = () => {
+            modalContent.classList.remove('modal-enter-active');
+            setTimeout(() => privacyModal.classList.add('hidden'), 300);
+        };
+        document.getElementById('closeModalBtn').addEventListener('click', closePriv);
+        document.getElementById('closeModalX').addEventListener('click', closePriv);
+        privacyModal.addEventListener('click', (e) => { if(e.target === privacyModal) closePriv(); });
+
+        formatRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if(e.target.value === 'excel') formatHint.innerText = "Múltiplos PDFs virarão abas em um único Excel.";
+                else formatHint.innerText = `Alta fidelidade via Nuvem para ${e.target.value.toUpperCase()}. PDFs múltiplos viram um .ZIP.`;
+            });
+        });
+
+        // ================== EXECUÇÃO PRINCIPAL DE PROCESSAMENTO ==================
         async function converterNaNuvem(file, formato) {
             const endpoint = formato === 'word' ? '/convert' : '/convert-pptx';
             const API_URL = `https://ordephra-conversorph.hf.space${endpoint}`;
@@ -316,10 +408,7 @@
             formData.append("file", file); 
             try {
                 const response = await fetch(API_URL, { method: "POST", body: formData });
-                if (!response.ok) {
-                    const erroTexto = await response.text();
-                    throw new Error("Erro no servidor: " + erroTexto);
-                }
+                if (!response.ok) throw new Error(await response.text());
                 return await response.blob(); 
             } catch (error) { throw error; }
         }
@@ -333,24 +422,55 @@
             URL.revokeObjectURL(url);
         }
 
-        convertBtn.addEventListener('click', async () => {
+        actionBtn.addEventListener('click', async () => {
             if (selectedFiles.length === 0) return;
             
             progressStatus.classList.remove('hidden');
-            convertBtn.disabled = true;
-            convertBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            actionBtn.disabled = true;
+            actionBtn.classList.add('opacity-50', 'cursor-not-allowed');
 
             const total = selectedFiles.length;
             let current = 0;
 
-            if (currentMode === 'merge') {
+            if (currentMode === 'split') {
+                // =============== LÓGICA DE SEPARAR PDF (PDF-LIB OFFLINE) ===============
+                progressStatus.innerText = "Extraindo páginas...";
+                try {
+                    const fileObj = selectedFiles[0];
+                    const arrayBuffer = await fileObj.file.arrayBuffer();
+                    const { PDFDocument } = PDFLib;
+                    const pdfDoc = await PDFDocument.load(arrayBuffer);
+                    const totalPages = pdfDoc.getPageCount();
+
+                    // Pega o input preenchido e filtra as páginas validas
+                    const inputStr = pageInputOutside.value;
+                    const indicesToKeep = parsePagesString(inputStr, totalPages);
+
+                    if (indicesToKeep.length === 0) {
+                        alert(`Insira um intervalo válido. O documento tem ${totalPages} página(s).`);
+                        actionBtn.disabled = false;
+                        actionBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        progressStatus.classList.add('hidden');
+                        return;
+                    }
+
+                    const newPdf = await PDFDocument.create();
+                    const copiedPages = await newPdf.copyPages(pdfDoc, indicesToKeep);
+                    copiedPages.forEach((page) => newPdf.addPage(page));
+
+                    const newPdfBytes = await newPdf.save();
+                    const blob = new Blob([newPdfBytes], { type: 'application/pdf' });
+                    downloadBlob(blob, `Extraido_${fileObj.file.name}`);
+                } catch (e) {
+                    alert("Erro ao extrair páginas. O arquivo pode estar protegido.");
+                }
+
+            } else if (currentMode === 'merge') {
                 // =============== LÓGICA DE JUNTAR PDFs (PDF-LIB OFFLINE) ===============
                 progressStatus.innerText = "Juntando PDFs...";
                 try {
                     const { PDFDocument } = PDFLib;
                     const mergedPdf = await PDFDocument.create();
-
-                    // Pega a ordem exata em que os itens estão na tela após o drag-and-drop
                     const items = Array.from(fileList.children);
                     
                     for (let item of items) {
@@ -363,21 +483,16 @@
                         const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
                         copiedPages.forEach((page) => mergedPdf.addPage(page));
                     }
-
                     const mergedPdfBytes = await mergedPdf.save();
-                    const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+                    const blob = new Blob([newPdfBytes], { type: 'application/pdf' });
                     downloadBlob(blob, 'Documentos_Juntos.pdf');
-                } catch (e) {
-                    console.error(e);
-                    alert("Erro ao juntar os PDFs. O arquivo pode estar protegido por senha.");
-                }
+                } catch (e) { alert("Erro ao juntar os PDFs."); }
 
             } else {
-                // =============== LÓGICA DE CONVERSÃO ===============
+                // =============== LÓGICA DE CONVERSÃO (Mantida Intacta) ===============
                 const selectedFormat = document.querySelector('input[name="formatOutput"]:checked').value;
                 
                 if (selectedFormat === 'excel') {
-                    // EXCEL (Offline)
                     const workbook = XLSX.utils.book_new();
                     for (const fileObj of selectedFiles) {
                         const file = fileObj.file;
@@ -404,11 +519,8 @@
                                     let textRow = [], currentText = rowItems[0].text, currentEndX = rowItems[0].x + rowItems[0].width;
                                     for (let i = 1; i < rowItems.length; i++) {
                                         let item = rowItems[i];
-                                        if (item.x - currentEndX < 15) {
-                                            currentText += " " + item.text; currentEndX = item.x + item.width; 
-                                        } else {
-                                            textRow.push(currentText); currentText = item.text; currentEndX = item.x + item.width;
-                                        }
+                                        if (item.x - currentEndX < 15) { currentText += " " + item.text; currentEndX = item.x + item.width; } 
+                                        else { textRow.push(currentText); currentText = item.text; currentEndX = item.x + item.width; }
                                     }
                                     textRow.push(currentText); allRows.push(textRow);
                                 });
@@ -428,37 +540,31 @@
                     downloadBlob(new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), total === 1 ? `${selectedFiles[0].file.name.replace(/\.pdf$/i, '')}.xlsx` : `Documentos_Compilados.xlsx`);
                     
                 } else if (selectedFormat === 'word' || selectedFormat === 'pptx') {
-                    // WORD E PPTX (Nuvem)
                     const zip = new JSZip();
                     let lastBlob = null, lastName = "";
                     let extensao = selectedFormat === 'word' ? 'docx' : 'pptx';
 
                     for (const fileObj of selectedFiles) {
                         const file = fileObj.file;
-                        progressStatus.innerText = `Enviando para a Nuvem (${current + 1}/${total})...`;
+                        progressStatus.innerText = `Enviando Nuvem (${current + 1}/${total})...`;
                         try {
                             const fileBlob = await converterNaNuvem(file, selectedFormat);
                             lastName = file.name.replace(/\.pdf$/i, '');
                             lastBlob = fileBlob;
                             zip.file(`${lastName}.${extensao}`, fileBlob);
-                        } catch (e) { 
-                            console.error(e);
-                            alert(`Erro ao processar: ${file.name}. Verifique a conexão.`);
-                        }
+                        } catch (e) { alert(`Erro no processamento: ${file.name}`); }
                         current++;
                     }
-                    progressStatus.innerText = `Finalizando pacote ${selectedFormat.toUpperCase()}...`;
+                    progressStatus.innerText = `Finalizando...`;
                     if (total === 1 && lastBlob) downloadBlob(lastBlob, `${lastName}.${extensao}`);
-                    else if (total > 1) {
-                        zip.generateAsync({ type: 'blob' }).then(content => downloadBlob(content, `Documentos_${selectedFormat.toUpperCase()}.zip`));
-                    }
+                    else if (total > 1) zip.generateAsync({ type: 'blob' }).then(content => downloadBlob(content, `Documentos_${selectedFormat.toUpperCase()}.zip`));
                 }
             }
             
             progressStatus.innerText = "Concluído!";
             setTimeout(() => progressStatus.classList.add('hidden'), 3000);
-            convertBtn.disabled = false;
-            convertBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            actionBtn.disabled = false;
+            actionBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         });
     </script>
 </body>
