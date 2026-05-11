@@ -10,6 +10,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    
     <style>
         .drop-zone {
             border: 3px dashed #3b82f6;
@@ -24,7 +27,6 @@
             border-color: #3b82f6;
             color: #1d4ed8;
         }
-        /* Animação suave para o Pop-up */
         .modal-enter {
             opacity: 0;
             transform: scale(0.9);
@@ -33,6 +35,11 @@
         .modal-enter-active {
             opacity: 1;
             transform: scale(1);
+        }
+        /* Classe para o item sendo arrastado */
+        .sortable-ghost {
+            opacity: 0.4;
+            background-color: #dbeafe !important;
         }
     </style>
 </head>
@@ -52,10 +59,16 @@
         </nav>
     </header>
 
-    <main class="w-full max-w-4xl px-4 py-8 flex flex-col items-center flex-grow justify-center">
+    <main class="w-full max-w-4xl px-4 py-8 flex flex-col items-center flex-grow justify-start mt-4">
+        
+        <div class="flex space-x-2 bg-gray-200 p-1 rounded-xl mb-8 max-w-sm mx-auto w-full shadow-inner">
+            <button id="tabConvert" class="flex-1 py-2 px-4 rounded-lg bg-white shadow-sm text-sm font-bold text-blue-600 transition cursor-pointer">🔄 Converter</button>
+            <button id="tabMerge" class="flex-1 py-2 px-4 rounded-lg text-sm font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-300 transition cursor-pointer">➕ Juntar</button>
+        </div>
+
         <div class="text-center mb-8">
-            <h1 class="text-4xl font-extrabold text-gray-800 mb-2">Conversão de PDF</h1>
-            <p class="text-gray-600 text-sm md:text-base">Arquivos processados localmente e na nuvem segura.</p>
+            <h1 id="mainTitle" class="text-4xl font-extrabold text-gray-800 mb-2">Conversão de PDF</h1>
+            <p id="mainSubtitle" class="text-gray-600 text-sm md:text-base">Arquivos processados localmente e na nuvem segura.</p>
         </div>
 
         <div id="dropZone" class="drop-zone w-full max-w-2xl bg-white rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer shadow-lg mb-6">
@@ -63,39 +76,39 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
             <span class="text-xl font-bold text-gray-700 mb-2">Clique ou solte os arquivos PDF aqui</span>
-            <span class="text-sm text-gray-400">Arraste múltiplos arquivos se precisar</span>
+            <span class="text-sm text-gray-400">Arraste múltiplos arquivos para organizar</span>
             <input type="file" id="fileInput" class="hidden" accept="application/pdf" multiple>
         </div>
 
         <div id="actionSection" class="w-full max-w-2xl hidden">
             
-            <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100">
+            <div id="formatSelection" class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100">
                 <h3 class="text-sm font-semibold text-gray-700 mb-3 text-center">Escolha o formato de saída:</h3>
-                <div class="flex gap-4 justify-center">
+                <div class="flex flex-wrap gap-3 justify-center">
                     <div>
                         <input type="radio" name="formatOutput" id="formatExcel" value="excel" class="hidden" checked>
-                        <label for="formatExcel" class="cursor-pointer border-2 border-gray-200 rounded-lg px-6 py-3 font-semibold text-gray-600 transition flex items-center gap-2">
-                            📊 Excel (.xlsx)
+                        <label for="formatExcel" class="cursor-pointer border-2 border-gray-200 rounded-lg px-4 py-2 font-semibold text-gray-600 transition flex items-center gap-2">
+                            📊 Excel
                         </label>
                     </div>
                     <div>
                         <input type="radio" name="formatOutput" id="formatWord" value="word" class="hidden">
-                        <label for="formatWord" class="cursor-pointer border-2 border-gray-200 rounded-lg px-6 py-3 font-semibold text-gray-600 transition flex items-center gap-2">
-                            📝 Word (.docx)
+                        <label for="formatWord" class="cursor-pointer border-2 border-gray-200 rounded-lg px-4 py-2 font-semibold text-gray-600 transition flex items-center gap-2">
+                            📝 Word
                         </label>
                     </div>
                     <div>
                         <input type="radio" name="formatOutput" id="formatPPT" value="pptx" class="hidden">
-                        <label for="formatPPT" class="cursor-pointer border-2 border-gray-200 rounded-lg px-6 py-3 font-semibold text-gray-600 transition flex items-center gap-2">
-                            📽️ PowerPoint (.pptx)
+                        <label for="formatPPT" class="cursor-pointer border-2 border-gray-200 rounded-lg px-4 py-2 font-semibold text-gray-600 transition flex items-center gap-2">
+                            📽️ PowerPoint
                         </label>
                     </div>
                 </div>
                 <p class="text-xs text-gray-400 text-center mt-3" id="formatHint">Múltiplos PDFs virarão abas em um único Excel.</p>
             </div>
 
-            <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100 max-h-48 overflow-y-auto">
-                <ul id="fileList" class="text-sm text-gray-700 divide-y divide-gray-100"></ul>
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100 max-h-80 overflow-y-auto">
+                <ul id="fileList" class="text-sm text-gray-700 space-y-2"></ul>
             </div>
 
             <div class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border">
@@ -109,36 +122,26 @@
 
     <div id="privacyModal" class="fixed inset-0 bg-gray-900/50 z-50 hidden flex items-center justify-center p-4">
         <div id="modalContent" class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 modal-enter relative">
-            
             <button id="closeModalX" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
-
             <div class="flex flex-col items-center mb-6">
                 <div class="bg-blue-100 p-3 rounded-full mb-4">
                     <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                 </div>
                 <h2 class="text-2xl font-bold text-gray-800">Privacidade dos seus Arquivos</h2>
             </div>
-
             <div class="space-y-4 text-gray-600 text-sm leading-relaxed">
                 <p>Este sistema foi desenvolvido para ser seguro e transparente. Veja como seus dados são tratados:</p>
-                
                 <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <h3 class="font-bold text-gray-800 flex items-center gap-2 mb-1">
-                        📊 Conversão para Excel
-                    </h3>
-                    <p>Acontece <strong>100% no seu navegador</strong>. O arquivo não sai do seu computador em nenhum momento.</p>
+                    <h3 class="font-bold text-gray-800 flex items-center gap-2 mb-1">📊 Excel e ➕ Junção de PDF</h3>
+                    <p>Acontecem <strong>100% no seu navegador</strong>. O arquivo não sai do seu computador em nenhum momento.</p>
                 </div>
-
                 <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <h3 class="font-bold text-blue-800 flex items-center gap-2 mb-1">
-                        📝 Word e 📽️ PowerPoint
-                    </h3>
-                    <p>Os arquivos são enviados para um <strong>servidor seguro</strong> para processamento de alta fidelidade. Eles permanecem apenas na memória temporária e são <strong>destruídos instantaneamente</strong> após o download. Nada é armazenado em discos ou bancos de dados.</p>
+                    <h3 class="font-bold text-blue-800 flex items-center gap-2 mb-1">📝 Word e 📽️ PowerPoint</h3>
+                    <p>Enviados para um <strong>servidor seguro</strong> e destruídos instantaneamente após o download. Nenhum dado é salvo.</p>
                 </div>
             </div>
-
             <button id="closeModalBtn" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition cursor-pointer">
                 Entendi, continuar usando
             </button>
@@ -146,6 +149,7 @@
     </div>
 
     <script>
+        // Configuração do leitor de PDF
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         // Constantes do DOM
@@ -155,92 +159,169 @@
         const fileList = document.getElementById('fileList');
         const convertBtn = document.getElementById('convertBtn');
         const progressStatus = document.getElementById('progressStatus');
+        const formatSelection = document.getElementById('formatSelection');
         const formatHint = document.getElementById('formatHint');
         const formatRadios = document.getElementsByName('formatOutput');
         
-        // Elementos do Modal de Privacidade
+        // Elementos das Abas e Títulos
+        const tabConvert = document.getElementById('tabConvert');
+        const tabMerge = document.getElementById('tabMerge');
+        const mainTitle = document.getElementById('mainTitle');
+        const mainSubtitle = document.getElementById('mainSubtitle');
+
+        // Modal
         const privacyModal = document.getElementById('privacyModal');
         const modalContent = document.getElementById('modalContent');
         const privacyBtn = document.getElementById('privacyBtn');
         const closeModalBtn = document.getElementById('closeModalBtn');
         const closeModalX = document.getElementById('closeModalX');
 
-        // Funções do Modal
+        // Estado Global
+        let selectedFiles = []; // Agora guardará objetos: { id, file, thumb }
+        let currentMode = 'convert'; // 'convert' ou 'merge'
+
+        // Inicializa o arrastar e soltar da lista
+        new Sortable(fileList, {
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+        });
+
+        // ================== LÓGICA DAS ABAS ==================
+        function setMode(mode) {
+            currentMode = mode;
+            if (mode === 'convert') {
+                tabConvert.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                tabConvert.classList.remove('text-gray-500', 'hover:bg-gray-300');
+                tabMerge.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                tabMerge.classList.add('text-gray-500', 'hover:bg-gray-300');
+                
+                mainTitle.innerText = "Conversão de PDF";
+                mainSubtitle.innerText = "Arquivos processados localmente e na nuvem segura.";
+                formatSelection.classList.remove('hidden');
+                convertBtn.innerHTML = '🚀 Iniciar Conversão';
+            } else {
+                tabMerge.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                tabMerge.classList.remove('text-gray-500', 'hover:bg-gray-300');
+                tabConvert.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                tabConvert.classList.add('text-gray-500', 'hover:bg-gray-300');
+                
+                mainTitle.innerText = "Juntar PDFs";
+                mainSubtitle.innerText = "Arraste os arquivos para ordenar. Processamento 100% offline.";
+                formatSelection.classList.add('hidden');
+                convertBtn.innerHTML = '🔗 Juntar PDFs';
+            }
+            renderFileList();
+        }
+
+        tabConvert.addEventListener('click', () => setMode('convert'));
+        tabMerge.addEventListener('click', () => setMode('merge'));
+
+        // ================== LÓGICA DO MODAL ==================
         function openModal() {
             privacyModal.classList.remove('hidden');
             setTimeout(() => modalContent.classList.add('modal-enter-active'), 10);
         }
-
         function closeModal() {
             modalContent.classList.remove('modal-enter-active');
             setTimeout(() => privacyModal.classList.add('hidden'), 300);
         }
-
         privacyBtn.addEventListener('click', openModal);
         closeModalBtn.addEventListener('click', closeModal);
         closeModalX.addEventListener('click', closeModal);
+        privacyModal.addEventListener('click', (e) => { if (e.target === privacyModal) closeModal(); });
 
-        privacyModal.addEventListener('click', (e) => {
-            if (e.target === privacyModal) closeModal();
-        });
-
-        // Lógica de arquivos
-        let selectedFiles = [];
-
+        // ================== DICAS DE FORMATO ==================
         formatRadios.forEach(radio => {
             radio.addEventListener('change', (e) => {
-                if(e.target.value === 'excel') {
-                    formatHint.innerText = "Múltiplos PDFs virarão abas em um único Excel.";
-                } else {
-                    formatHint.innerText = `Alta fidelidade via Nuvem para ${e.target.value.toUpperCase()}. PDFs múltiplos viram um .ZIP.`;
-                }
+                if(e.target.value === 'excel') formatHint.innerText = "Múltiplos PDFs virarão abas em um único Excel.";
+                else formatHint.innerText = `Alta fidelidade via Nuvem para ${e.target.value.toUpperCase()}. PDFs múltiplos viram um .ZIP.`;
             });
         });
 
+        // ================== UPLOAD E MINIATURAS ==================
         dropZone.addEventListener('click', () => fileInput.click());
         ['dragenter', 'dragover'].forEach(eName => dropZone.addEventListener(eName, e => { e.preventDefault(); dropZone.classList.add('dragover'); }, false));
         ['dragleave', 'drop'].forEach(eName => dropZone.addEventListener(eName, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }, false));
         dropZone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
         fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
-        function handleFiles(files) {
-            selectedFiles = Array.from(files).filter(file => file.type === 'application/pdf');
-            if (selectedFiles.length > 0) {
-                actionSection.classList.remove('hidden');
-                fileList.innerHTML = '';
-                selectedFiles.forEach(file => {
-                    const li = document.createElement('li');
-                    li.className = "py-2 flex justify-between items-center";
-                    li.innerHTML = `<span>📄 ${file.name}</span> <span class="text-xs text-gray-400">${(file.size/1024/1024).toFixed(2)} MB</span>`;
-                    fileList.appendChild(li);
-                });
+        // Função mágica para desenhar a capinha do PDF
+        async function generateThumbnail(file) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const page = await pdf.getPage(1);
+                const viewport = page.getViewport({ scale: 0.3 }); // Reduzido para ficar leve
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                return canvas.toDataURL();
+            } catch (e) {
+                console.error("Erro ao gerar miniatura:", e);
+                return null;
             }
         }
 
-        // Chamada de API da Nuvem
+        async function handleFiles(files) {
+            const newFiles = Array.from(files).filter(file => file.type === 'application/pdf');
+            if (newFiles.length === 0) return;
+
+            actionSection.classList.remove('hidden');
+            progressStatus.innerText = "Gerando miniaturas...";
+            progressStatus.classList.remove('hidden');
+            convertBtn.disabled = true;
+
+            for (let file of newFiles) {
+                const id = Math.random().toString(36).substr(2, 9);
+                const thumb = await generateThumbnail(file);
+                selectedFiles.push({ id, file, thumb }); // Salva o objeto rico
+            }
+
+            progressStatus.classList.add('hidden');
+            convertBtn.disabled = false;
+            renderFileList();
+        }
+
+        function renderFileList() {
+            fileList.innerHTML = '';
+            selectedFiles.forEach(fileObj => {
+                const li = document.createElement('li');
+                li.setAttribute('data-id', fileObj.id);
+                
+                if (currentMode === 'merge') {
+                    // Visual com miniatura e drag-and-drop
+                    li.className = "py-3 px-4 flex items-center bg-gray-50 border border-gray-200 rounded-xl cursor-move shadow-sm hover:shadow transition";
+                    li.innerHTML = `
+                        <span class="mr-4 text-gray-400 text-xl font-bold cursor-grab active:cursor-grabbing">⋮⋮</span>
+                        ${fileObj.thumb ? `<img src="${fileObj.thumb}" class="w-10 h-14 object-cover border border-gray-300 mr-4 shadow-sm rounded">` : `<div class="w-10 h-14 bg-gray-200 mr-4 rounded border border-gray-300"></div>`}
+                        <span class="flex-grow truncate font-medium text-gray-700">${fileObj.file.name}</span>
+                        <span class="text-xs text-gray-400 ml-2 whitespace-nowrap">${(fileObj.file.size/1024/1024).toFixed(2)} MB</span>
+                    `;
+                } else {
+                    // Visual simples para conversão
+                    li.className = "py-2 px-3 flex justify-between items-center border border-gray-100 rounded-lg bg-gray-50";
+                    li.innerHTML = `<span class="truncate pr-4">📄 ${fileObj.file.name}</span> <span class="text-xs text-gray-400 whitespace-nowrap">${(fileObj.file.size/1024/1024).toFixed(2)} MB</span>`;
+                }
+                fileList.appendChild(li);
+            });
+        }
+
+        // ================== LÓGICA DE PROCESSAMENTO ==================
         async function converterNaNuvem(file, formato) {
             const endpoint = formato === 'word' ? '/convert' : '/convert-pptx';
             const API_URL = `https://ordephra-conversorph.hf.space${endpoint}`;
-            
             const formData = new FormData();
             formData.append("file", file); 
-
             try {
-                const response = await fetch(API_URL, {
-                    method: "POST",
-                    body: formData
-                });
-
+                const response = await fetch(API_URL, { method: "POST", body: formData });
                 if (!response.ok) {
                     const erroTexto = await response.text();
                     throw new Error("Erro no servidor: " + erroTexto);
                 }
-                
                 return await response.blob(); 
-            } catch (error) {
-                console.error("Falha de conexão com a API:", error);
-                throw error; 
-            }
+            } catch (error) { throw error; }
         }
 
         function downloadBlob(blob, filename) {
@@ -252,11 +333,8 @@
             URL.revokeObjectURL(url);
         }
 
-        // Motor de Conversão principal
         convertBtn.addEventListener('click', async () => {
             if (selectedFiles.length === 0) return;
-            
-            const selectedFormat = document.querySelector('input[name="formatOutput"]:checked').value;
             
             progressStatus.classList.remove('hidden');
             convertBtn.disabled = true;
@@ -265,101 +343,115 @@
             const total = selectedFiles.length;
             let current = 0;
 
-            if (selectedFormat === 'excel') {
-                // =============== LÓGICA DO EXCEL ===============
-                const workbook = XLSX.utils.book_new();
-                for (const file of selectedFiles) {
-                    progressStatus.innerText = `Lendo PDF ${current + 1}/${total}...`;
-                    try {
-                        const arrayBuffer = await file.arrayBuffer();
-                        const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
-                        let allRows = []; 
+            if (currentMode === 'merge') {
+                // =============== LÓGICA DE JUNTAR PDFs (PDF-LIB OFFLINE) ===============
+                progressStatus.innerText = "Juntando PDFs...";
+                try {
+                    const { PDFDocument } = PDFLib;
+                    const mergedPdf = await PDFDocument.create();
 
-                        for (let p = 1; p <= pdf.numPages; p++) {
-                            const page = await pdf.getPage(p);
-                            const textContent = await page.getTextContent();
-                            let rowsMap = new Map();
+                    // Pega a ordem exata em que os itens estão na tela após o drag-and-drop
+                    const items = Array.from(fileList.children);
+                    
+                    for (let item of items) {
+                        const fileId = item.getAttribute('data-id');
+                        const fileObj = selectedFiles.find(f => f.id === fileId);
+                        if (!fileObj) continue;
 
-                            textContent.items.forEach(item => {
-                                let textoLimpo = item.str.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '').trim();
-                                if (textoLimpo === "") return;
-                                let x = item.transform[4], y = item.transform[5], width = item.width; 
-                                let coordY = Math.round(y / 4) * 4; 
-                                if (!rowsMap.has(coordY)) rowsMap.set(coordY, []);
-                                rowsMap.get(coordY).push({ text: textoLimpo, x: x, width: width });
-                            });
-
-                            let sortedY = Array.from(rowsMap.keys()).sort((a, b) => b - a);
-                            sortedY.forEach(y => {
-                                let rowItems = rowsMap.get(y).sort((a, b) => a.x - b.x);
-                                let textRow = [];
-                                let currentText = rowItems[0].text;
-                                let currentEndX = rowItems[0].x + rowItems[0].width;
-
-                                for (let i = 1; i < rowItems.length; i++) {
-                                    let item = rowItems[i];
-                                    if (item.x - currentEndX < 15) {
-                                        currentText += " " + item.text;
-                                        currentEndX = item.x + item.width; 
-                                    } else {
-                                        textRow.push(currentText);
-                                        currentText = item.text;
-                                        currentEndX = item.x + item.width;
-                                    }
-                                }
-                                textRow.push(currentText); 
-                                allRows.push(textRow);
-                            });
-                        }
-
-                        const worksheet = XLSX.utils.aoa_to_sheet(allRows);
-                        let sheetName = file.name.replace(/\.pdf$/i, '').replace(/[\\\/\?\*\[\]\:]/g, '').substring(0, 31);
-                        let finalSheetName = sheetName, counter = 1;
-                        while (workbook.SheetNames.includes(finalSheetName)) {
-                            let suffix = `_${counter}`;
-                            finalSheetName = sheetName.substring(0, 31 - suffix.length) + suffix;
-                            counter++;
-                        }
-                        XLSX.utils.book_append_sheet(workbook, worksheet, finalSheetName);
-                    } catch (e) { console.error(e); }
-                    current++;
-                }
-
-                progressStatus.innerText = "Gerando o Excel...";
-                const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-                const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                downloadBlob(blob, total === 1 ? `${selectedFiles[0].name.replace(/\.pdf$/i, '')}.xlsx` : `Documentos_Compilados.xlsx`);
-                
-            } else if (selectedFormat === 'word' || selectedFormat === 'pptx') {
-                // =============== LÓGICA DO WORD E PPTX ===============
-                const zip = new JSZip();
-                let lastBlob = null;
-                let lastName = "";
-                
-                let extensao = selectedFormat === 'word' ? 'docx' : 'pptx';
-
-                for (const file of selectedFiles) {
-                    progressStatus.innerText = `Enviando para a Nuvem (${current + 1}/${total})...`;
-                    try {
-                        const fileBlob = await converterNaNuvem(file, selectedFormat);
-                        lastName = file.name.replace(/\.pdf$/i, '');
-                        lastBlob = fileBlob;
-                        zip.file(`${lastName}.${extensao}`, fileBlob);
-                    } catch (e) { 
-                        console.error('Erro na conversão do arquivo ' + file.name, e);
-                        alert(`Houve um erro ao processar o arquivo: ${file.name}. Verifique a conexão.`);
+                        const arrayBuffer = await fileObj.file.arrayBuffer();
+                        const pdfDoc = await PDFDocument.load(arrayBuffer);
+                        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                        copiedPages.forEach((page) => mergedPdf.addPage(page));
                     }
-                    current++;
+
+                    const mergedPdfBytes = await mergedPdf.save();
+                    const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+                    downloadBlob(blob, 'Documentos_Juntos.pdf');
+                } catch (e) {
+                    console.error(e);
+                    alert("Erro ao juntar os PDFs. O arquivo pode estar protegido por senha.");
                 }
 
-                progressStatus.innerText = `Finalizando pacote ${selectedFormat.toUpperCase()}...`;
+            } else {
+                // =============== LÓGICA DE CONVERSÃO ===============
+                const selectedFormat = document.querySelector('input[name="formatOutput"]:checked').value;
                 
-                if (total === 1 && lastBlob) {
-                    downloadBlob(lastBlob, `${lastName}.${extensao}`);
-                } else if (total > 1) {
-                    zip.generateAsync({ type: 'blob' }).then(content => {
-                        downloadBlob(content, `Documentos_${selectedFormat.toUpperCase()}.zip`);
-                    });
+                if (selectedFormat === 'excel') {
+                    // EXCEL (Offline)
+                    const workbook = XLSX.utils.book_new();
+                    for (const fileObj of selectedFiles) {
+                        const file = fileObj.file;
+                        progressStatus.innerText = `Lendo PDF ${current + 1}/${total}...`;
+                        try {
+                            const arrayBuffer = await file.arrayBuffer();
+                            const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
+                            let allRows = []; 
+                            for (let p = 1; p <= pdf.numPages; p++) {
+                                const page = await pdf.getPage(p);
+                                const textContent = await page.getTextContent();
+                                let rowsMap = new Map();
+                                textContent.items.forEach(item => {
+                                    let textoLimpo = item.str.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '').trim();
+                                    if (textoLimpo === "") return;
+                                    let x = item.transform[4], y = item.transform[5], width = item.width; 
+                                    let coordY = Math.round(y / 4) * 4; 
+                                    if (!rowsMap.has(coordY)) rowsMap.set(coordY, []);
+                                    rowsMap.get(coordY).push({ text: textoLimpo, x: x, width: width });
+                                });
+                                let sortedY = Array.from(rowsMap.keys()).sort((a, b) => b - a);
+                                sortedY.forEach(y => {
+                                    let rowItems = rowsMap.get(y).sort((a, b) => a.x - b.x);
+                                    let textRow = [], currentText = rowItems[0].text, currentEndX = rowItems[0].x + rowItems[0].width;
+                                    for (let i = 1; i < rowItems.length; i++) {
+                                        let item = rowItems[i];
+                                        if (item.x - currentEndX < 15) {
+                                            currentText += " " + item.text; currentEndX = item.x + item.width; 
+                                        } else {
+                                            textRow.push(currentText); currentText = item.text; currentEndX = item.x + item.width;
+                                        }
+                                    }
+                                    textRow.push(currentText); allRows.push(textRow);
+                                });
+                            }
+                            const worksheet = XLSX.utils.aoa_to_sheet(allRows);
+                            let sheetName = file.name.replace(/\.pdf$/i, '').replace(/[\\\/\?\*\[\]\:]/g, '').substring(0, 31);
+                            let finalSheetName = sheetName, counter = 1;
+                            while (workbook.SheetNames.includes(finalSheetName)) {
+                                let suffix = `_${counter}`; finalSheetName = sheetName.substring(0, 31 - suffix.length) + suffix; counter++;
+                            }
+                            XLSX.utils.book_append_sheet(workbook, worksheet, finalSheetName);
+                        } catch (e) { console.error(e); }
+                        current++;
+                    }
+                    progressStatus.innerText = "Gerando o Excel...";
+                    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                    downloadBlob(new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), total === 1 ? `${selectedFiles[0].file.name.replace(/\.pdf$/i, '')}.xlsx` : `Documentos_Compilados.xlsx`);
+                    
+                } else if (selectedFormat === 'word' || selectedFormat === 'pptx') {
+                    // WORD E PPTX (Nuvem)
+                    const zip = new JSZip();
+                    let lastBlob = null, lastName = "";
+                    let extensao = selectedFormat === 'word' ? 'docx' : 'pptx';
+
+                    for (const fileObj of selectedFiles) {
+                        const file = fileObj.file;
+                        progressStatus.innerText = `Enviando para a Nuvem (${current + 1}/${total})...`;
+                        try {
+                            const fileBlob = await converterNaNuvem(file, selectedFormat);
+                            lastName = file.name.replace(/\.pdf$/i, '');
+                            lastBlob = fileBlob;
+                            zip.file(`${lastName}.${extensao}`, fileBlob);
+                        } catch (e) { 
+                            console.error(e);
+                            alert(`Erro ao processar: ${file.name}. Verifique a conexão.`);
+                        }
+                        current++;
+                    }
+                    progressStatus.innerText = `Finalizando pacote ${selectedFormat.toUpperCase()}...`;
+                    if (total === 1 && lastBlob) downloadBlob(lastBlob, `${lastName}.${extensao}`);
+                    else if (total > 1) {
+                        zip.generateAsync({ type: 'blob' }).then(content => downloadBlob(content, `Documentos_${selectedFormat.toUpperCase()}.zip`));
+                    }
                 }
             }
             
